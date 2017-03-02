@@ -1,0 +1,8 @@
+[package]
+name = "promptly"
+version = "0.1.0"
+authors = ["Terrence Cole <terrence.d.cole@gmail.com>"]
+
+[dependencies]
+error-chain = "*"
+nix = "0.7.0"
