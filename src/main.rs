@@ -1,13 +1,17 @@
 #[macro_use] extern crate error_chain;
-extern crate nix;
+extern crate chrono;
+extern crate git2;
 
 mod errors {
     error_chain! { }
 }
 
+use chrono::Local;
 use errors::*;
-use nix::unistd::fork;
+use git2::Repository;
 use std::env::{args, current_dir};
+use std::io::BufRead;
+use std::process::Command;
 
 fn put1(s: &str) { put(s, 1); }
 fn put(s: &str, cnt: usize) {
@@ -39,6 +43,21 @@ fn format_run_time(t: i32) -> String {
     return out;
 }
 
+fn find_git_branch() -> Option<String> {
+    let repo = match Repository::open(".") {
+        Ok(repo) => repo,
+        Err(e) => return None
+    };
+    let head = match repo.head() {
+        Ok(head) => head,
+        Err(e) => return None
+    };
+    return Some(match head.shorthand() {
+        Some(tgt) => tgt,
+        None => "(detached)"
+    }.to_owned());
+}
+
 quick_main!(run);
 fn run() -> Result<()> {
     let args = args().collect::<Vec<String>>();
@@ -48,6 +67,11 @@ fn run() -> Result<()> {
 
     let path = current_dir().chain_err(|| "failed to getcwd")?;
     let path_str = path.to_str().unwrap_or("<error>");
+
+    let branch = find_git_branch();
+
+    let dt = Local::now();
+
 
     let time_str = format_run_time(run_time);
     put1("┬─");
@@ -61,6 +85,10 @@ fn run() -> Result<()> {
     put1("├ ");
     put1(path_str);
     put1(" ╯");
+    if branch.is_some() {
+        put1(&branch.expect(""));
+    }
+    put1(&dt.to_string());
     put1("\n");
 
 
