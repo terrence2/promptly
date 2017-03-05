@@ -20,6 +20,81 @@ fn put(s: &str, cnt: usize) {
     }
 }
 
+quick_main!(run);
+fn run() -> Result<()> {
+    // This is not meant to be human callable, so worry about arg parsing later.
+    // The format is currently: <status> <columns> <runtime_seconds>
+    let args = args().collect::<Vec<String>>();
+    let status = "0" == &args[1];
+    let columns = args[2].parse::<usize>().chain_err(|| "expected usize columns")?;
+    let prior_runtime = args[3].parse::<i32>().chain_err(|| "expected i32 run time")?;
+
+    let mut left_floats = Vec::<String>::new();
+    let mut right_floats = Vec::<String>::new();
+
+    let path = current_dir().chain_err(|| "failed to getcwd")?;
+    let path_str = path.to_str().unwrap_or("<error>");
+    left_floats.push(path_str.to_owned());
+
+    let current_time = Local::now();
+    right_floats.push(current_time.to_string());
+
+    let git_branch = find_git_branch();
+    git_branch.map(|branch| left_floats.push(branch));
+
+    let prior_runtime_str = format_run_time(prior_runtime);
+
+    let layout = compute_layout(columns, &prior_runtime_str, &left_floats, &right_floats)
+        .chain_err(|| "failed to layout")?;
+
+    for row in layout {
+        for cell in row {
+            let cnt = if cell.repeat { cell.len } else { 1 };
+            put(&cell.content, cnt);
+        }
+        put1("\n");
+    }
+
+    /*
+    put1("┬─");
+    put("─", path_str.len());
+    put1("─┬");
+    put("─", columns - prior_runtime_str.len());
+    put1(" ");
+    put1(&prior_runtime_str);
+    put1("\n");
+
+    put1("├ ");
+    put1(path_str);
+    put1(" ╯");
+    put1("\n");
+
+    put1("╰> ");
+    */
+    return Ok(());
+}
+
+struct Cell {
+    row: usize,
+    col: usize, // 0 based
+    len: usize,
+    repeat: bool,
+    content: String,
+}
+
+fn compute_layout(columns: usize, prior_runtime: &str, left_floats: &Vec<String>, right_floats: &Vec<String>)
+    -> Result<Vec<Vec<Cell>>>
+{
+    // Start with the basic top structure.
+    let mut row0 = vec![Cell{row:0, col:0, len:columns, repeat:true, content:"─".to_owned()}];
+    let mut row1 = vec![Cell{row:0, col:0, len:columns, repeat:true, content:" ".to_owned()}];
+    let mut row2 = vec![Cell{row:0, col:0, len:columns, repeat:true, content:" ".to_owned()}];
+
+    // Insert prior runtime.
+
+    return Ok(vec![row0, row1, row2]);
+}
+
 fn format_run_time(t: i32) -> String {
     let mut out = "".to_owned();
     if t == 0 {
@@ -56,42 +131,4 @@ fn find_git_branch() -> Option<String> {
         Some(tgt) => tgt,
         None => "(detached)"
     }.to_owned());
-}
-
-quick_main!(run);
-fn run() -> Result<()> {
-    let args = args().collect::<Vec<String>>();
-    let status = "0" == &args[1];
-    let columns = args[2].parse::<usize>().chain_err(|| "expected usize columns")?;
-    let run_time = args[3].parse::<i32>().chain_err(|| "expected i32 run time")?;
-
-    let path = current_dir().chain_err(|| "failed to getcwd")?;
-    let path_str = path.to_str().unwrap_or("<error>");
-
-    let branch = find_git_branch();
-
-    let dt = Local::now();
-
-
-    let time_str = format_run_time(run_time);
-    put1("┬─");
-    put("─", path_str.len());
-    put1("─┬");
-    put("─", columns - time_str.len());
-    put1(" ");
-    put1(&time_str);
-    put1("\n");
-
-    put1("├ ");
-    put1(path_str);
-    put1(" ╯");
-    if branch.is_some() {
-        put1(&branch.expect(""));
-    }
-    put1(&dt.to_string());
-    put1("\n");
-
-
-    put1("╰> ");
-    return Ok(());
 }
