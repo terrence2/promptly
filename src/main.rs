@@ -9,9 +9,8 @@ mod errors {
 use chrono::Local;
 use errors::*;
 use git2::Repository;
+use std::cmp;
 use std::env::{args, current_dir, var};
-use std::io::BufRead;
-use std::process::Command;
 
 const DATE_FORMAT: &'static str = "%d %b %H:%M:%S";
 
@@ -47,7 +46,7 @@ fn run() -> Result<()> {
 
     //let layout = compute_layout(columns, &prior_runtime_str, &left_floats, &right_floats)
     //    .chain_err(|| "failed to layout")?;
-    let layout = build_runs(columns, &prior_runtime_str, &left_floats, &right_floats);
+    let layout = build_runs(columns, &prior_runtime_str, left_floats, right_floats);
     show_runs(&layout);
 
     /*
@@ -124,82 +123,250 @@ This gets complicated when there are more items to lay out:
 ├ BBBBBBBB ┴ CCCCCCCC ──┘
 └➤ ls foo/bar
 */
-fn build_runs(columns: usize, prior_dt: &str, left_floats: &Vec<String>, right_floats: &Vec<String>) -> Vec<String>
+fn build_runs(columns: usize, prior_dt: &str, left_floats: Vec<String>, right_floats: Vec<String>) -> Vec<String>
 {
-    // Attempt to compute a simple, single-line layout.
-    let mut rh: usize = 1;
-    let mut rw: usize = right_floats.iter().map(|s| s.chars().count()).sum::<usize>() +
-                        2 * right_floats.len() +
-                        3 + prior_dt.chars().count() + 1;
-    let mut left_layout = layout_left(rw, left_floats);
+    let fail = vec!["➤ ".to_owned()];
 
-    // If we fail to layout, we need to squeeze the right and re-try.
-    if left_layout.is_none() {
-        //right_layout = layout_right(right_floats);
-        //if right_layout.is_none() {
-        return vec!["➤ ".to_owned()];
-        //}
-        //let (rw, rh) = right_layout;
-        //left_layout = layout_left(rw, left_floats);
-    }
-
-    // Figure out how much room we have for left floats.
-    // ┬────────────────────────────────┬───────────┐ TTT
-    let required_columns = 1 + 0000000 + 3 + right_floats[0].chars().count() + 3 + prior_dt.chars().count() + 1;
-    if required_columns > columns {
-        return vec!["➤ ".to_owned()];
-    }
-    let width = columns - required_columns;
-
-    // Split up our left floats by row.
-    let mut left_width = 0;
-    let mut left_splits: Vec<Vec<String>> = vec![vec![]];
-    let mut x = 0;
-    let mut y = 0;
-    for s in left_floats {
-        let next = x + 1 + s.chars().count() + 2;
-        if next > width {
-            if left_splits[y].len() == 0 {
-                return vec!["➤ ".to_owned()];
-            }
-            x = 0;
-            y += 1;
-            left_splits[y] = Vec::new();
-        }
-        x = next;
-        if x > left_width {
-            left_width = x;
-        }
-        left_splits[y].push(s.to_owned());
-    }
-
-    let mut runs: Vec<String> = Vec::new();
-
-    // Build the top row.
-    let mut row0 = "┬".to_owned() + &repeats('─', left_width) + "┬";
-    runs.push(row0);
     /*
-    let mut prior_run = "┬".to_owned() + &repeats('─', width) + "┬" + &repeats('─', right_floats[0].chars().count()) + "┐" + prior_dt + " ";
-    let mut current_run = "├ ".to_owned();
-    y = 1;
+     * MEASUREMENTS:
+     *
+     *  v------------------- columns ---------------------v
+     *  ┬───────────────────────┬────────┬───────────┐ TTT
+     *  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDD ┴─────
+     *  └➤ ls foo/bar
+     *
+     *   v--------------- inner_width --------------v
+     *  ┬───────────────────────┬────────┬───────────┐ TTT
+     *  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDD ┴─────
+     *  └➤ ls foo/bar
+     *
+     *   v----- left_extent ----v        v--- right_extent ---v
+     *  ┬───────────────────────┬────────┬─────────────────────┐ TTT
+     *  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
+     *  └➤ ls foo/bar
+     *
+     *        ┬───────────┬─────────────────────┬───────────┐ TTT
+     *      > ├ AAAAAAAAA ┤                     ├ DDDDDDDDD ┴─────
+     * height ├ BBBBBBBBB ┤                     └ DDDDDDDDD ┘
+     *      > ├ CCCCCCCCC ┘
+     *        └➤ ls foo/bar
+     */
+    let inner_width = columns - (1 + 2 + prior_dt.chars().count() + 1);
 
-    for row in left_splits {
-        for s in row {
-        }
+    // Compute packing for RHS, given minimal LHS.
+    //       v-------------v
+    // ┬───┬──┬──────┬──────┐ TTT
+    // ├ A ┘  └ EEEE ┴ FFFF ┴─────
+    //
+    //       v-----v
+    // ┬───┬─┬──────┐ TTT
+    // ├ A ┘ ├ FFFF ┴─────
+    //       └── EE ┘
+    let (w_max_right, h_max_right) = match pack_into_width(inner_width - 5, &right_floats) {
+        None => return fail,
+        Some(p) => p
+    };
 
-        if y == 1 {
+    // Try to pack the left into the maximized rhs.
+    //  v------------------------v
+    // ┬───┬───────────────────────┬──────┬──────┐ TTT
+    // ├ ? ┘                       └ EEEE ┴ FFFF ┴─────
+    match pack_into_width(inner_width - w_max_right - 1, &left_floats) {
+        Some((w_min_left, h_min_left)) => {
+            if h_max_right >= h_min_left {
+                return do_layout(columns, w_min_left, w_max_right, cmp::max(h_min_left, h_max_right),
+                                 prior_dt, left_floats, right_floats);
+            }
         }
+        None => {}
+    };
+
+    // If the maximal right did not allow the left side to fit well, re-try with a minimal right.
+    let (w_min_right, h_min_right) = find_minimal_width(&right_floats, 2 + prior_dt.chars().count() + 1);
+
+    // Try again to pack the left into the minimal rhs.
+    //  v------------------------v
+    // ┬───┬──────────────────────────────┬─────────┐ TTT
+    // ├ ? ┘                              ├ FFFF ───┴─────
+    //                                    └ EEEEEEEEEEEEEE
+    let (w_max_left, h_max_left) = match pack_into_width(inner_width - w_min_right - 1, &left_floats) {
+        None => return fail,
+        Some(p) => p
+    };
+
+    return do_layout(columns, w_max_left, w_min_right, cmp::max(h_max_left, h_min_right),
+                     prior_dt, left_floats, right_floats);
+
+}
+
+fn do_layout(columns: usize, left_extent: usize, right_extent: usize, height: usize,
+             prior_dt: &str, left_floats: Vec<String>, right_floats: Vec<String>) -> Vec<String>
+{
+    /*
+     * MEASUREMENTS:
+     *
+     *  v------------------- columns ---------------------v
+     *  ┬───────────────────────┬────────┬───────────┐ TTT
+     *  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDD ┴─────
+     *  └➤ ls foo/bar
+     *
+     *   v----- left_extent ----v        v--- right_extent ---v
+     *  ┬───────────────────────┬────────┬─────────────────────┐ TTT
+     *  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
+     *  └➤ ls foo/bar
+     *
+     *        ┬───────────┬─────────────────────┬───────────┐ TTT
+     *      > ├ AAAAAAAAA ┤                     ├ DDDDDDDDD ┴─────
+     * height ├ BBBBBBBBB ┤                     └ DDDDDDDDD ┘
+     *      > ├ CCCCCCCCC ┘
+     *        └➤ ls foo/bar
+     *
+     *  vv <-left_start
+     *  v---- left_end ---------v
+     *  v--------- right_start ---------v
+     *  v---------------------- right_end --------------------v
+     *  ┬───────────────────────┬────────┬─────────────────────┐ TTT
+     *  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
+     *  └➤ ls foo/bar
+     */
+    let mut runs: Vec<String> = Vec::new();
+    let left_start = 1;
+    let left_end = left_start + left_extent;
+    let right_start = columns - (2 + prior_dt.chars().count() + 1) - right_extent;
+    let right_end = right_start + right_extent;
+    println!("metrics:");
+    println!("  left_extent:  {}", left_extent);
+    println!("  left_start:   {}", left_start);
+    println!("  left_end:     {}", left_end);
+    println!("  right_extent: {}", right_extent);
+    println!("  right_start:  {}", right_start);
+    println!("  right_end:    {}", right_end);
+
+    let left_by_row = split_for_width(left_extent, left_floats);
+    let right_by_row = split_for_width(right_extent, right_floats);
+    println!("right_by_row: {:?}", right_by_row);
+
+    // row 0
+    let mut row0 = "┬".to_owned();
+    let mut offset = left_start;
+    for f in left_by_row[0].iter() {
+        let w = f.chars().count();
+        row0 += &("─".to_owned() + &repeats('─', w) + "─┬");
+        offset += w + 3;
+        debug_assert!(offset <= left_end);
     }
+    row0 += &repeats('─', right_start - offset);
+    offset = right_start;
+    for f in right_by_row[0].iter() {
+        let w = f.chars().count();
+        row0 += &("┬─".to_owned() + &repeats('─', w) + "─");
+        offset += w + 3;
+        debug_assert!(offset <= right_end);
+    }
+    row0 += &("┐ ".to_owned() + prior_dt + " ");
+    runs.push(row0);
 
-    runs.push(prior_run);
-    runs.push(current_run);
-    */
+    //while left_floats.len() > 0 || right_floats.len() > 0 {
+        let mut row = "├".to_owned();
+        let mut offset = left_start;
+        for f in left_by_row[0].iter() {
+            let w = f.chars().count();
+            row += &(" ".to_owned() + &f + " ┴");
+            offset += w + 3;
+            debug_assert!(offset <= left_end);
+        }
+        row += &repeats(' ', right_start - offset);
+        for f in right_by_row[0].iter() {
+            let w = f.chars().count();
+            row += &("┴ ".to_owned() + f + " ");
+            offset += w + 3;
+            debug_assert!(offset <= right_end, "foo");
+        }
+        row += &("┴─".to_owned() + &repeats('─', prior_dt.chars().count()) + "─");
+        runs.push(row);
+    //}
+
     return runs;
 }
 
-fn layout_left(columns: usize, left_floats: &Vec<String>) -> Option<(usize, usize)>
+fn pack_into_width(width: usize, floats: &Vec<String>) -> Option<(usize, usize)>
 {
-    None
+    let mut pack_width = 0;
+    let mut pack_height = 0;
+
+    // The given width exludes any separator padding, so we can fill all
+    // the way to the given width.
+    //                                     /This space is not included.
+    //    v-------------------------------vV
+    // ...──────┬──────┬──────┬──────┬──────┬──────┬──────┐ TTT...
+    // ... AAAA ┴ BBBB ┴ CCCC ┴ DDDD ┘      └ EEEE ┴ FFFF ┴─────...
+    //
+    // Each float extends from 1 to the left and 2 to the right for box drawing.
+    //    v-----v
+    // ...──────┬──────┬──────┬──────┬...
+    // ... AAAA ┴ BBBB ┴ CCCC ┴ DDDD ┘...
+    let mut offset = 0;
+    for f in floats {
+        let fw = f.chars().count();
+        offset += 3 + fw;
+        if offset > width {
+            pack_height += 1;
+            offset = 3 + fw;
+            if offset > width {
+                return None;
+            }
+        }
+        if offset > pack_width {
+            pack_width = offset;
+        }
+    }
+    return Some((pack_width, pack_height));
+}
+
+fn split_for_width(width: usize, mut floats: Vec<String>) -> Vec<Vec<String>>
+{
+    if floats.len() == 0 { return vec![]; }
+
+    let mut out: Vec<Vec<String>> = Vec::new();
+    let mut row = 0;
+
+    // Each float extends from 1 to the left and 2 to the right for box drawing.
+    //    v-----v
+    // ...──────┬──────┬──────┬──────┬...
+    // ... AAAA ┴ BBBB ┴ CCCC ┴ DDDD ┘...
+    let mut column = floats[0].chars().count() + 3;
+
+    out.push(vec![floats.remove(0)]);
+    while floats.len() > 0 {
+        let f = floats.remove(0);
+        let w = f.chars().count() + 3;
+        if column + w > width {
+            row += 1;
+            out.push(vec![]);
+        }
+        out[row].push(f);
+    }
+
+    return out;
+}
+
+fn find_minimal_width(floats: &Vec<String>, bump: usize) -> (usize, usize)
+{
+    let mut max_width = 0;
+    let mut row_num = 0;
+    for f in floats {
+        let mut w = f.chars().count();
+        /*
+        if row_num != 0 {
+            w -= bump;
+        }
+        */
+        row_num += 1;
+        if f.chars().count() > max_width {
+            max_width = w;
+        }
+    }
+    return (max_width, floats.len());
 }
 
 fn repeats(c: char, cnt: usize) -> String {
@@ -232,11 +399,11 @@ fn format_run_time(t: i32) -> String {
 fn find_git_branch() -> Option<String> {
     let repo = match Repository::open(".") {
         Ok(repo) => repo,
-        Err(e) => return None
+        Err(_) => return None
     };
     let head = match repo.head() {
         Ok(head) => head,
-        Err(e) => return None
+        Err(_) => return None
     };
     return Some(match head.shorthand() {
         Some(tgt) => tgt,
@@ -253,6 +420,36 @@ mod tests {
         let left = vec!["AAAA".to_owned(), "BBBB".to_owned(), "CCCC".to_owned()];
         let right = vec!["DDDD".to_owned(), "EEEE".to_owned()];
         let dt = "TTT";
-        super::show_runs(&super::build_runs(80, dt, &left, &right));
+        let runs = super::build_runs(80, dt, left, right);
+        assert_eq!(80, runs[0].chars().count());
+        assert_eq!(80, runs[1].chars().count());
+        super::show_runs(&runs);
+    }
+
+    #[test]
+    fn single_line_min() {
+        let left = vec!["AAAA".to_owned(), "BBBB".to_owned(), "CCCC".to_owned()];
+        let right = vec!["DDDD".to_owned(), "EEEE".to_owned()];
+        let dt = "TTT";
+        let runs = super::build_runs(43, dt, left, right);
+        super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_right_long_short() {
+        let left = vec!["AAAA".to_owned(), "BBBB".to_owned(), "CCCC".to_owned()];
+        let right = vec!["DDDDDDDD".to_owned(), "EEEE".to_owned()];
+        let dt = "TTT";
+        let runs = super::build_runs(42, dt, left, right);
+        super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_right_short_long() {
+        let left = vec!["AAAA".to_owned(), "BBBB".to_owned(), "CCCC".to_owned()];
+        let right = vec!["DDDD".to_owned(), "EEEEEEEE".to_owned()];
+        let dt = "TTT";
+        let runs = super::build_runs(42, dt, left, right);
+        super::show_runs(&runs);
     }
 }
