@@ -83,6 +83,21 @@ fn show_runs(layout: &Vec<String>) {
     }
 }
 
+struct LayoutOptions {
+    verbose: bool
+}
+
+impl LayoutOptions {
+    fn new() {
+        LayoutOptions {
+            verbose: false,
+        }
+    }
+
+    fn verbose(&mut self) { self.verbose = true; }
+    fn quiet(&mut self) { self.verbose = false; }
+}
+
 /*
 Basic layout looks like:
 ┬───────────┬──────────┬───────────┬───────────────┬─────────────────────┐ TTT
@@ -123,7 +138,9 @@ This gets complicated when there are more items to lay out:
 ├ BBBBBBBB ┴ CCCCCCCC ──┘
 └➤ ls foo/bar
 */
-fn build_runs(columns: usize, prior_dt: &str, left_floats: Vec<String>, right_floats: Vec<String>) -> Vec<String>
+fn build_runs(columns: usize, prior_dt: &str,
+              left_floats: Vec<String>,
+              right_floats: Vec<String>) -> Vec<String>
 {
     let fail = vec!["➤ ".to_owned()];
 
@@ -251,15 +268,21 @@ fn do_layout(columns: usize, left_extent: usize, right_extent: usize, height: us
     let mut offset = left_start;
     for f in left_by_row[0].iter() {
         let w = f.chars().count();
-        row0 += &("─".to_owned() + &repeats('─', w) + "─┬");
+        let t = &("─".to_owned() + &repeats('─', w) + "─┬");
+        row0 += t;
+        println!("Adding \"{}\" from {} to {}", t, offset, offset + w + 3);
         offset += w + 3;
         debug_assert!(offset <= left_end);
     }
+    println!("Adding {} blank spaces", right_start - offset);
     row0 += &repeats('─', right_start - offset);
     offset = right_start;
+    println!("starting right prints at: {}", offset);
     for f in right_by_row[0].iter() {
         let w = f.chars().count();
-        row0 += &("┬─".to_owned() + &repeats('─', w) + "─");
+        let t = &("┬─".to_owned() + &repeats('─', w) + "─");
+        row0 += t;
+        println!("Adding \"{}\" from {} to {}", t, offset, offset + w + 3);
         offset += w + 3;
         debug_assert!(offset <= right_end);
     }
@@ -276,6 +299,7 @@ fn do_layout(columns: usize, left_extent: usize, right_extent: usize, height: us
             debug_assert!(offset <= left_end);
         }
         row += &repeats(' ', right_start - offset);
+        offset = right_start;
         for f in right_by_row[0].iter() {
             let w = f.chars().count();
             row += &("┴ ".to_owned() + f + " ");
@@ -339,8 +363,8 @@ fn split_for_width(width: usize, mut floats: Vec<String>) -> Vec<Vec<String>>
     out.push(vec![floats.remove(0)]);
     while floats.len() > 0 {
         let f = floats.remove(0);
-        let w = f.chars().count() + 3;
-        if column + w > width {
+        let fw = 3 + f.chars().count();
+        if column + fw > width {
             row += 1;
             out.push(vec![]);
         }
@@ -352,21 +376,29 @@ fn split_for_width(width: usize, mut floats: Vec<String>) -> Vec<Vec<String>>
 
 fn find_minimal_width(floats: &Vec<String>, bump: usize) -> (usize, usize)
 {
-    let mut max_width = 0;
-    let mut row_num = 0;
+    // Find the largest float. This is the minimum colums we can use.
+    let mut min_columns = 0;
     for f in floats {
-        let mut w = f.chars().count();
-        /*
-        if row_num != 0 {
-            w -= bump;
-        }
-        */
-        row_num += 1;
-        if f.chars().count() > max_width {
-            max_width = w;
+        let mut fw = 3 + f.chars().count();
+        if fw > min_columns {
+            min_columns = fw;
         }
     }
-    return (max_width, floats.len());
+
+    // When we split_for_width, we will greedily pack multiple small floats
+    // in the area taken by the largest, so figure out how many rows this will
+    // result in.
+    let mut row_count = 0;
+    let mut offset = 0;
+    for f in floats {
+        let fw = 3 + f.chars().count();
+        if offset + fw > min_columns {
+            row_count += 1;
+            offset = 0;
+        }
+        offset += fw;
+    }
+    return (min_columns, row_count);
 }
 
 fn repeats(c: char, cnt: usize) -> String {
