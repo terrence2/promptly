@@ -60,6 +60,7 @@ trait Emittable
     fn width(&self) -> usize;
 }
 
+#[derive(Debug, PartialEq)]
 struct Span
 {
     color: &'static str,
@@ -69,6 +70,9 @@ struct Span
 impl Span {
     fn new(content: &str) -> Self {
         Span { color: "", content: content.to_owned() }
+    }
+    fn repeat(c: char, cnt: usize) -> Self {
+        Span::new(&std::iter::repeat(c.to_string()).take(cnt).collect::<String>())
     }
 }
 
@@ -82,7 +86,7 @@ impl Emittable for Span {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 struct Div
 {
     children: Vec<Span>
@@ -110,9 +114,9 @@ impl Emittable for Div {
     }
 }
 
-fn show_runs(layout: &Vec<String>) {
+fn show_runs(layout: &Vec<Div>) {
     for row in layout {
-        println!("{}", &row);
+        row.emit();
     }
 }
 
@@ -185,8 +189,8 @@ fn build_runs(columns: usize,
               left_floats: Vec<Div>,
               right_floats: Vec<Div>,
               options: &LayoutOptions)
-              -> Vec<String> {
-    let fail = vec!["➤ ".to_owned()];
+              -> Vec<Div> {
+    let fail = vec![Div::new("➤ ")];
 
     // MEASUREMENTS:
     //
@@ -289,7 +293,7 @@ fn do_layout(columns: usize,
              left_floats: Vec<Div>,
              right_floats: Vec<Div>,
              options: &LayoutOptions)
-             -> Vec<String> {
+             -> Vec<Div> {
     // MEASUREMENTS:
     //
     //  v------------------- columns ---------------------v
@@ -316,7 +320,7 @@ fn do_layout(columns: usize,
     //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
     //  └➤ ls foo/bar
     //
-    let mut runs: Vec<String> = Vec::new();
+    let mut runs: Vec<Div> = Vec::new();
     let left_start = 1;
     let left_end = left_start + left_extent;
     let right_start = columns - (2 + prior_dt.chars().count() + 1) - right_extent;
@@ -339,25 +343,26 @@ fn do_layout(columns: usize,
     }
 
     // row 0
-    let mut row0 = "┬".to_owned();
+    let mut row0 = Div::new("┬");
+    /*
     let mut offset = left_start;
     for f in left_by_row[0].iter() {
         println!("At f: {:?}", f);
         let w = f.width();
-        row0 += &("─".to_owned() + &repeats('─', w) + "─┬");
+        row0 += vec![Span::new("─"), Span::repeat('─', w), Span::new("─┬")];
         offset += w + 3;
         debug_assert!(offset <= left_end);
     }
-    row0 += &repeats('─', right_start - offset);
+    row0.push(Span::repeat('─', right_start - offset));
     offset = right_start;
     for f in right_by_row[0].iter() {
         let w = f.width();
-        row0 += &("┬─".to_owned() + &repeats('─', w) + "─");
+        row0.push(vec![Span::new("┬─"), Span::repeat('─', w), Span::new("─")]);
         offset += w + 3;
         debug_assert!(offset <= right_end);
     }
-    row0 += &repeats('─', right_end - offset);
-    row0 += &("┐ ".to_owned() + prior_dt + " ");
+    row0 += Span::repeat('─', right_end - offset);
+    row0 += vec![Span::new("┐ "), prior_dt, Span::new(" ")];
     runs.push(row0);
 
     // rows n+
@@ -413,8 +418,9 @@ fn do_layout(columns: usize,
         }
         runs.push(row);
     }
+    */
 
-    runs.push("└➤ ".to_owned());
+    runs.push(Div::new("└➤ "));
     return runs;
 }
 
@@ -560,13 +566,14 @@ fn find_git_branch() -> Option<String> {
 mod tests {
     use super::*;
 
-    fn assertions(width: usize, height: usize, runs: &Vec<String>) {
+    fn assertions(width: usize, height: usize, runs: &Vec<Div>) {
         assert_eq!(height + 1, runs.len());
         for run in runs.iter() {
             if run == runs.last().unwrap() { break; }
-            assert_eq!(width, run.chars().count());
+            assert_eq!(width, run.width());
         }
 
+        /*
         let all_box_drawing = vec!['─', '┼', '│', '┌', '└', '┐', '┘', '┤','├', '┬', '┴'];
         let right_exits = vec!['─', '┼', '┌', '└', '├', '┬', '┴'];
         let left_exits = vec!['─', '┼', '┐', '┘', '┤', '┬', '┴'];
@@ -585,20 +592,22 @@ mod tests {
                         println!("Found invalid box sequence at row: {}, col: {}", row, col);
                         println!("  chars are: '{}' -> '{}'", left, right);
                         println!("Context:");
-                        println!("  row: {}", run);
+                        println!("  row: {:?}", run);
                         assert!(false);
                     }
                     if left_exits.contains(&right) && !right_exits.contains(&left) {
                         println!("Found invalid box sequence at row: {}, col: {}", row, col);
                         println!("  chars are: '{}' -> '{}'", left, right);
                         println!("Context:");
-                        println!("  row: {}", run);
+                        println!("  row: {:?}", run);
                         assert!(false);
                     }
                 }
             }
         }
+        */
 
+        /*
         let bottom_exits = vec!['┼', '│', '┌', '┐', '┤','├', '┬'];
         let top_exits = vec!['┼', '│', '└', '┘', '┤','├', '┴'];
         for row in 0..height {
@@ -617,16 +626,16 @@ mod tests {
                         println!("Found invalid box sequence at row: {}, col: {}", row, col);
                         println!("  chars are: '{}' above '{}'", above, below);
                         println!("Context:");
-                        println!("  row0: {}", run0);
-                        println!("  row1: {}", run1);
+                        println!("  row0: {:?}", run0);
+                        println!("  row1: {:?}", run1);
                         assert!(false);
                     }
                     if top_exits.contains(&below) && !bottom_exits.contains(&above) {
                         println!("Found invalid box sequence at row: {}, col: {}", row, col);
                         println!("  chars are: '{}' above '{}'", above, below);
                         println!("Context:");
-                        println!("  row0: {}", run0);
-                        println!("  row1: {}", run1);
+                        println!("  row0: {:?}", run0);
+                        println!("  row1: {:?}", run1);
                         assert!(false);
                     }
                 }
@@ -648,6 +657,7 @@ mod tests {
             }
             */
         }
+        */
     }
 
     #[test]
