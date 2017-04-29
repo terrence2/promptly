@@ -2,9 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="466f5a6a-8540-4bd9-8d41-7336056b0e00" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/libraries/Cargo__promptly_.xml" afterPath="$PROJECT_DIR$/.idea/libraries/Cargo__promptly_.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/libraries/Rust__promptly_.xml" afterPath="$PROJECT_DIR$/.idea/libraries/Rust__promptly_.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/promptly.iml" afterPath="$PROJECT_DIR$/.idea/promptly.iml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main.rs" afterPath="$PROJECT_DIR$/src/main.rs" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -32,11 +29,13 @@
       <file leaf-file-name="main.rs" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main.rs">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="480">
-              <caret line="426" column="41" lean-forward="true" selection-start-line="426" selection-start-column="41" selection-end-line="426" selection-end-column="41" />
+            <state relative-caret-position="720">
+              <caret line="403" column="0" lean-forward="false" selection-start-line="403" selection-start-column="0" selection-end-line="403" selection-end-column="0" />
               <folding>
-                <element signature="e#2058#2059#0" expanded="true" />
-                <element signature="e#2147#2148#0" expanded="true" />
+                <element signature="e#2044#2045#0" expanded="true" />
+                <element signature="e#2133#2134#0" expanded="true" />
+                <element signature="e#2183#2184#0" expanded="true" />
+                <element signature="e#2239#2240#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -314,12 +313,12 @@
       <updated>1492963113281</updated>
       <workItem from="1492963115686" duration="200000" />
       <workItem from="1492963328567" duration="5309000" />
-      <workItem from="1493088259534" duration="4030000" />
+      <workItem from="1493088259534" duration="5368000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="9539000" />
+    <option name="totallyTimeSpent" value="10877000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -375,8 +374,10 @@
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
-            <element signature="e#2058#2059#0" expanded="true" />
-            <element signature="e#2147#2148#0" expanded="true" />
+            <element signature="e#2044#2045#0" expanded="true" />
+            <element signature="e#2133#2134#0" expanded="true" />
+            <element signature="e#2183#2184#0" expanded="true" />
+            <element signature="e#2239#2240#0" expanded="true" />
           </folding>
         </state>
       </provider>
@@ -386,19 +387,23 @@
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
-            <element signature="e#2058#2059#0" expanded="true" />
-            <element signature="e#2147#2148#0" expanded="true" />
+            <element signature="e#2044#2045#0" expanded="true" />
+            <element signature="e#2133#2134#0" expanded="true" />
+            <element signature="e#2183#2184#0" expanded="true" />
+            <element signature="e#2239#2240#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main.rs">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="480">
-          <caret line="426" column="41" lean-forward="true" selection-start-line="426" selection-start-column="41" selection-end-line="426" selection-end-column="41" />
+        <state relative-caret-position="720">
+          <caret line="403" column="0" lean-forward="false" selection-start-line="403" selection-start-column="0" selection-end-line="403" selection-end-column="0" />
           <folding>
-            <element signature="e#2058#2059#0" expanded="true" />
-            <element signature="e#2147#2148#0" expanded="true" />
+            <element signature="e#2044#2045#0" expanded="true" />
+            <element signature="e#2133#2134#0" expanded="true" />
+            <element signature="e#2183#2184#0" expanded="true" />
+            <element signature="e#2239#2240#0" expanded="true" />
           </folding>
         </state>
       </provider>
