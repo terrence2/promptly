@@ -52,12 +52,6 @@ fn run() -> Result<()> {
     return Ok(());
 }
 
-trait Emittable
-{
-    fn emit(&self);
-    fn width(&self) -> usize;
-}
-
 #[derive(Debug, PartialEq)]
 struct Span
 {
@@ -69,16 +63,6 @@ impl Span {
     fn new(content: &str) -> Self {
         Span { color: "", content: content.to_owned() }
     }
-    fn repeat(c: char, cnt: usize) -> Self {
-        Span::new(&std::iter::repeat(c.to_string()).take(cnt).collect::<String>())
-    }
-}
-
-impl Emittable for Span {
-    fn emit(&self) {
-        print!("{}{}", self.color, self.content);
-    }
-
     fn width(&self) -> usize {
         return self.content.chars().count();
     }
@@ -94,30 +78,163 @@ impl Div {
     fn new(a: &str) -> Self {
         Div { children: vec![Span::new(a)] }
     }
-    fn new2(a: &str, b: &str) -> Self {
-        Div { children: vec![Span::new(a), Span::new(b)] }
-    }
     fn new3(a: &str, b: &str, c: &str) -> Self {
         Div { children: vec![Span::new(a), Span::new(b), Span::new(c)] }
     }
-}
-
-impl Emittable for Div {
-    fn emit(&self) {
-        self.children.iter().map(|s| s.emit());
-    }
-
     fn width(&self) -> usize {
         return self.children.iter().map(|s| s.width()).sum();
     }
 }
 
-fn show_runs(layout: &Vec<Vec<Span>>) {
-    for row in layout {
-        for span in row {
-            span.emit();
+#[derive(Debug)]
+struct Run
+{
+    width: usize,
+    cells: Vec<char>,
+    formats: Vec<Option<&'static str>>,
+    offset: usize,
+    last_format: &'static str
+}
+
+impl Run {
+    fn new(width: usize) -> Self {
+        Run {
+            width: width,
+            cells: std::iter::repeat(' ').take(width).collect::<Vec<char>>(),
+            formats: std::iter::repeat(None).take(width).collect::<Vec<Option<&'static str>>>(),
+            offset: 0,
+            last_format: "",
         }
-        println!();
+    }
+
+    fn add(&mut self, s: &str, fmt: &'static str) {
+        if fmt != self.last_format {
+            self.last_format = fmt;
+            self.formats[self.offset] = Some(fmt);
+        }
+        for c in s.chars() {
+            self.cells[self.offset] = c;
+            self.offset += 1;
+        }
+    }
+
+    fn repeat(&mut self, c: char, cnt: usize, fmt: &'static str) {
+        self.add(&std::iter::repeat(c.to_string()).take(cnt).collect::<String>(), fmt);
+    }
+
+    fn add_span(&mut self, span: &Span) {
+        self.add(&span.content, span.color);
+    }
+
+    fn add_div(&mut self, div: &Div) {
+        for span in div.children.iter() {
+            self.add_span(span);
+        }
+    }
+
+    fn is_border_at(&self, offset: usize) -> bool {
+        return match self.cells[offset] {
+            '─' => true,
+            '│' => true,
+            '┼' => true,
+            '┌' => true,
+            '└' => true,
+            '┐' => true,
+            '┘' => true,
+            '├' => true,
+            '┤' => true,
+            '┬' => true,
+            '┴' => true,
+            _ => false,
+        }
+    }
+
+    fn find_time_corner_border(&self, start: usize) -> Option<usize> {
+        let mut offset = start;
+        while offset < self.width {
+            match self.cells[offset] {
+                '┐' => return Some(offset),
+                _ => {}
+            }
+            offset += 1;
+        }
+        return None;
+    }
+
+    fn find_next_border(&self, start: usize) -> Option<usize> {
+        let mut offset = start;
+        while offset < self.width {
+            match self.cells[offset] {
+                '─' => return Some(offset),
+                '│' => return Some(offset),
+                '┼' => return Some(offset),
+                '┌' => return Some(offset),
+                '└' => return Some(offset),
+                '┐' => return Some(offset),
+                '┘' => return Some(offset),
+                '├' => return Some(offset),
+                '┤' => return Some(offset),
+                '┬' => return Some(offset),
+                '┴' => return Some(offset),
+                _ => {}
+            }
+            offset += 1;
+        }
+        return None;
+    }
+
+    fn add_south_border(&mut self, offset: usize) {
+        let next = match self.cells[offset] {
+            '─' => '┬',
+            '│' => '│',
+            '┼' => '┼',
+            '┌' => '┌',
+            '└' => '├',
+            '┐' => '┐',
+            '┘' => '┤',
+            '├' => '├',
+            '┤' => '┤',
+            '┬' => '┬',
+            '┴' => '┼',
+            _ => '_',// panic!("do not know how to add south border to: {}", self.cells[offset])
+        };
+        self.cells[offset] = next;
+    }
+
+    fn add_east_border(&mut self) {
+        let next = match self.cells[self.offset - 1] {
+            '─' => '─',
+            '│' => '├',
+            '┼' => '┼',
+            '┌' => '┌',
+            '└' => '└',
+            '┐' => '┬',
+            '┘' => '┴',
+            '├' => '├',
+            '┤' => '┼',
+            '┬' => '┬',
+            '┴' => '┴',
+            _ => '_',//panic!("do not know how to add south border to: {}", self.cells[self.offset - 1])
+        };
+        self.cells[self.offset - 1] = next;
+    }
+
+    fn format(&self) -> String {
+        let mut out = "".to_owned();
+        for c in self.cells.iter() {
+            out.push(*c);
+        }
+        return out;
+    }
+}
+
+fn format_runs(layout: &Vec<Run>) -> Vec<String> {
+    layout.iter().map(|r| r.format()).collect::<Vec<String>>()
+}
+
+fn show_runs(layout: &Vec<Run>) {
+    for run in layout {
+        println!("{}", run.format());
     }
 }
 
@@ -190,8 +307,11 @@ fn build_runs(columns: usize,
               left_floats: Vec<Div>,
               right_floats: Vec<Div>,
               options: &LayoutOptions)
-              -> Vec<Vec<Span>> {
-    let fail = vec![vec![Span::new("➤ ")]];
+              -> Vec<Run> {
+    let mut fail_run = Run::new(2);
+    fail_run.add("➤", "prompt");
+    fail_run.add(" ", "clear");
+    let fail = vec![fail_run];
 
     // MEASUREMENTS:
     //
@@ -218,6 +338,11 @@ fn build_runs(columns: usize,
     //
     let inner_width = columns - (2 + prior_dt.chars().count() + 1);
     let outer_width = columns - 1;
+    if options.verbose {
+        println!("columns:     {}", columns);
+        println!("outer_width: {}", outer_width);
+        println!("inner_width: {}", inner_width);
+    }
 
     // Compute packing for RHS, given minimal LHS.
     //        v----row0----v
@@ -234,6 +359,13 @@ fn build_runs(columns: usize,
         None => return fail,
         Some(p) => p,
     };
+    if options.verbose {
+        println!("Pass1:");
+        println!("    target0: {}", inner_width - 5);
+        println!("    target1: {}", inner_width - 5);
+        println!("    w_max_r: {}", w_max_right);
+        println!("    h_max_r: {}", h_max_right);
+    }
 
     // Try to pack the left into the maximized rhs.
     //  v----------row0----------v
@@ -243,6 +375,13 @@ fn build_runs(columns: usize,
     let minimal_left = inner_width - w_max_right - 1;
     match pack_into_width(minimal_left, minimal_left, &left_floats) {
         Some((w_min_left, h_min_left)) => {
+            if options.verbose {
+                println!("Pass2:");
+                println!("    target0: {}", minimal_left);
+                println!("    target1: {}", minimal_left);
+                println!("    w_min_l: {}", w_min_left);
+                println!("    h_min_l: {}", h_min_left);
+            }
             if h_max_right >= h_min_left {
                 return do_layout(columns,
                                  w_min_left,
@@ -254,12 +393,24 @@ fn build_runs(columns: usize,
                                  options);
             }
         }
-        None => {}
+        None => {
+            if options.verbose {
+                println!("Pass2:");
+                println!("    left does not fit into: {}", minimal_left);
+            }
+
+        }
     };
 
     // If the maximal right did not allow the left side to fit well, re-try with a minimal right.
     let (w_min_right, h_min_right) = find_minimal_width(&right_floats,
-                                                        2 + prior_dt.chars().count() + 1);
+                                                        2 + prior_dt.chars().count());
+    if options.verbose {
+        println!("Pass3:");
+        println!("    bump:    {}", 2 + prior_dt.chars().count());
+        println!("    w_min_r: {}", w_min_right);
+        println!("    h_min_r: {}", h_min_right);
+    }
 
     // Try again to pack the left into the minimal rhs.
     //  v-------------row0--------------v
@@ -273,8 +424,13 @@ fn build_runs(columns: usize,
         None => return fail,
         Some(p) => p,
     };
+    if options.verbose {
+        println!("Pass4:");
+        println!("    maximal_left: {}", maximal_left);
+        println!("    w_max_l: {}", w_max_left);
+        println!("    h_max_l: {}", h_max_left);
+    }
 
-    println!("h_max_left: {}; h_min_right: {}", h_max_left, h_min_right);
     return do_layout(columns,
                      w_max_left,
                      w_min_right,
@@ -283,7 +439,6 @@ fn build_runs(columns: usize,
                      left_floats,
                      right_floats,
                      options);
-
 }
 
 fn do_layout(columns: usize,
@@ -294,7 +449,7 @@ fn do_layout(columns: usize,
              left_floats: Vec<Div>,
              right_floats: Vec<Div>,
              options: &LayoutOptions)
-             -> Vec<Vec<Span>> {
+             -> Vec<Run> {
     // MEASUREMENTS:
     //
     //  v------------------- columns ---------------------v
@@ -321,7 +476,7 @@ fn do_layout(columns: usize,
     //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
     //  └➤ ls foo/bar
     //
-    let mut runs: Vec<Vec<Span>> = Vec::new();
+    let mut runs: Vec<Run> = Vec::new();
     let left_start = 1;
     let left_end = left_start + left_extent;
     let right_start = columns - (2 + prior_dt.chars().count() + 1) - right_extent;
@@ -344,89 +499,93 @@ fn do_layout(columns: usize,
     }
 
     // row 0
-    let mut row0 = vec![Span::new("┬")];
-    let mut offset = left_start;
-    for f in left_by_row[0].iter() {
-        let w = f.width();
-        row0.append(&mut vec![Span::new("─"), Span::repeat('─', w), Span::new("─┬")]);
-        offset += w + 3;
-        debug_assert!(offset <= left_end);
-    }
-    row0.push(Span::repeat('─', right_start - offset));
-    offset = right_start;
-    for f in right_by_row[0].iter() {
-        let w = f.width();
-        row0.append(&mut vec![Span::new("┬─"), Span::repeat('─', w), Span::new("─")]);
-        offset += w + 3;
-        debug_assert!(offset <= right_end);
-    }
-    row0.push(Span::repeat('─', right_end - offset));
-    row0.append(&mut vec![Span::new("┐ "), Span::new(prior_dt), Span::new(" ")]);
+    let mut row0 = Run::new(columns);
+    row0.repeat('─', right_end, "border");
+    row0.add("┐", "border");
+    row0.add(" ", "clear");
+    row0.add_span(&Span::new(prior_dt));
+    row0.add(" ", "clear");
     runs.push(row0);
 
     // rows n+
     for i in 0..height {
-        let mut row = vec![];
-        let mut offset = left_start;
+        let mut row = Run::new(columns);
+        runs[i].add_south_border(row.offset);
+        row.add("│", "border");
+
+        // Emit LEFT
         if left_by_row.len() > i {
-            row.push(Span::new("├"));
             for f in left_by_row[i].iter() {
-                let mut box_end = "┘";
-                if f != left_by_row[i].last().unwrap() {
-                    box_end = "┴";
+                row.add_east_border();
+                row.add(" ", "clear");
+                row.add_div(f);
+                row.add(" ", "clear");
+
+                if f == left_by_row[i].last().unwrap() {
+                    let to_right = left_extent - row.offset;
+                    row.repeat('─', to_right, "border");
                 }
-                let w = f.width();
-                row.append(&mut vec![Span::new(" ")]);
-                for c in f.children.iter() {
-                    row.push(Span::new(&c.content));
+                if runs[i].is_border_at(row.offset) {
+                    runs[i].add_south_border(row.offset);
+                    row.add("┘", "border");
+                } else {
+                    row.add("─", "border");
                 }
-                row.append(&mut vec![Span::new(" "), Span::new(box_end)]);
-                offset += w + 3;
-                debug_assert!(offset <= left_end);
             }
-        } else {
-            row.push(Span::new("│"));
-            row.push(Span::repeat(' ', right_start - offset));
-            offset = right_start;
         }
-        row.push(Span::repeat(' ', right_start - offset));
-        offset = right_start;
-        for f in right_by_row[i].iter() {
-            let mut box_start = "└";
-            if f != right_by_row[i].first().unwrap() {
-                box_start = "┴";
+
+        // Emit CENTER
+        let to_right = right_start - row.offset;
+        row.repeat(' ', to_right, "clear");
+
+        // Emit RIGHT
+        if right_by_row.len() > i {
+            runs[i].add_south_border(row.offset);
+            row.add("└", "border");
+            for f in right_by_row[i].iter() {
+                row.add(" ", "clear");
+                row.add_div(f);
+                row.add(" ", "clear");
+
+                if i == 0 && f == right_by_row[i].last().unwrap() {
+                    match runs[i].find_time_corner_border(row.offset) {
+                        Some(next_border) => {
+                            let offset = next_border - row.offset;
+                            if offset > 0 {
+                                row.repeat('─', offset, "border")
+                            }
+                        },
+                        None => {}
+                    }
+                } else {
+                    match runs[i].find_next_border(row.offset) {
+                        Some(next_border) => {
+                            let offset = next_border - row.offset;
+                            if offset > 0 {
+                                row.repeat('─', offset, "border")
+                            }
+                        },
+                        None => {}
+                    }
+                }
+                runs[i].add_south_border(row.offset);
+                row.add("┘", "border");
             }
-            if i < right_by_row.len() - 1 {
-                box_start = "├";
+            if i == 0 {
+                let to_end = columns - row.offset;
+                row.add_east_border();
+                row.repeat('─', to_end, "border");
             }
-            let w = f.width();
-            row.append(&mut vec![Span::new(box_start), Span::new(" ")]);
-            for c in f.children.iter() {
-                row.push(Span::new(&c.content));
-            }
-            row.append(&mut vec![Span::new(" ")]);
-            offset += w + 3;
-            debug_assert!(offset <= right_end, "foo");
-        }
-        row.push(Span::repeat('─', right_end - offset));
-        if i == 0 {
-            if height > 1 {
-                row.append(&mut vec![Span::new("┼─"), Span::repeat('─', prior_dt.chars().count()), Span::new("─")]);
-            } else {
-                row.append(&mut vec![Span::new("┴─"), Span::repeat('─', prior_dt.chars().count()), Span::new("─")]);
-            }
-        } else {
-            if offset <= right_end {
-                row.push(Span::new("┘"));
-            } else {
-                row.push(Span::new(" "));
-            }
-            row.append(&mut vec![Span::repeat(' ', prior_dt.chars().count()), Span::new("  ")]);
         }
         runs.push(row);
     }
 
-    runs.push(vec![Span::new("└➤ ")]);
+    let mut run_last = Run::new(3);
+    run_last.add("└", "border");
+    run_last.add("➤", "prompt");
+    run_last.add(" ", "clear");
+
+    runs.push(run_last);
     return runs;
 }
 
@@ -496,13 +655,13 @@ fn split_for_width(width: usize, mut floats: Vec<Div>) -> Vec<Vec<Div>> {
 }
 
 fn find_minimal_width(floats: &Vec<Div>, bump: usize) -> (usize, usize) {
-    // Find the largest float. This is the minimum colums we can use.
+    // Find the largest float. This is the minimum columns we can use.
     // Remember to increase the size of the first float for the bump.
     let mut min_columns = 0;
     for f in floats {
         let mut fw = 3 + f.width();
-        if f == floats.first().unwrap() {
-            fw += bump;
+        if f != floats.first().unwrap() {
+            fw -= bump;
         }
         if fw > min_columns {
             min_columns = fw;
@@ -513,7 +672,7 @@ fn find_minimal_width(floats: &Vec<Div>, bump: usize) -> (usize, usize) {
     // in the area taken by the largest, so figure out how many rows this will
     // result in.
     let mut row_count = 0;
-    let mut offset = bump;
+    let mut offset = 0;
     for f in floats {
         let fw = 3 + f.width();
         if offset + fw > min_columns {
@@ -523,10 +682,6 @@ fn find_minimal_width(floats: &Vec<Div>, bump: usize) -> (usize, usize) {
         offset += fw;
     }
     return (min_columns, row_count + 1);
-}
-
-fn repeats(c: char, cnt: usize) -> String {
-    std::iter::repeat(c.to_string()).take(cnt).collect::<String>()
 }
 
 fn format_run_time(t: i32) -> String {
@@ -572,100 +727,6 @@ fn find_git_branch() -> Option<String> {
 mod tests {
     use super::*;
 
-    fn assertions(width: usize, height: usize, runs: &Vec<Vec<Span>>) {
-        assert_eq!(height + 1, runs.len());
-        for run in runs.iter() {
-            if run == runs.last().unwrap() { break; }
-            //assert_eq!(width, run.width());
-        }
-
-        /*
-        let all_box_drawing = vec!['─', '┼', '│', '┌', '└', '┐', '┘', '┤','├', '┬', '┴'];
-        let right_exits = vec!['─', '┼', '┌', '└', '├', '┬', '┴'];
-        let left_exits = vec!['─', '┼', '┐', '┘', '┤', '┬', '┴'];
-        for row in 0..height {
-            let run = &runs[row];
-            for col in 0..run.chars().count() {
-                if col == width - 1 {
-                    break;
-                }
-                let left = run.chars().nth(col).unwrap();
-                let right = run.chars().nth(col + 1).unwrap();
-
-                if all_box_drawing.contains(&left) && all_box_drawing.contains(&right) {
-                    // -> connects to ->
-                    if right_exits.contains(&left) && !left_exits.contains(&right) {
-                        println!("Found invalid box sequence at row: {}, col: {}", row, col);
-                        println!("  chars are: '{}' -> '{}'", left, right);
-                        println!("Context:");
-                        println!("  row: {:?}", run);
-                        assert!(false);
-                    }
-                    if left_exits.contains(&right) && !right_exits.contains(&left) {
-                        println!("Found invalid box sequence at row: {}, col: {}", row, col);
-                        println!("  chars are: '{}' -> '{}'", left, right);
-                        println!("Context:");
-                        println!("  row: {:?}", run);
-                        assert!(false);
-                    }
-                }
-            }
-        }
-        */
-
-        /*
-        let bottom_exits = vec!['┼', '│', '┌', '┐', '┤','├', '┬'];
-        let top_exits = vec!['┼', '│', '└', '┘', '┤','├', '┴'];
-        for row in 0..height {
-            let run0 = &runs[row];
-            let run1 = &runs[row + 1];
-
-            for col in 0..run0.chars().count() {
-                if col >= run1.chars().count() {
-                    break;
-                }
-                let above = run0.chars().nth(col).unwrap();
-                let below = run1.chars().nth(col).unwrap();
-                if all_box_drawing.contains(&above) && all_box_drawing.contains(&below) {
-                    // v connects to v
-                    if bottom_exits.contains(&above) && !top_exits.contains(&below) {
-                        println!("Found invalid box sequence at row: {}, col: {}", row, col);
-                        println!("  chars are: '{}' above '{}'", above, below);
-                        println!("Context:");
-                        println!("  row0: {:?}", run0);
-                        println!("  row1: {:?}", run1);
-                        assert!(false);
-                    }
-                    if top_exits.contains(&below) && !bottom_exits.contains(&above) {
-                        println!("Found invalid box sequence at row: {}, col: {}", row, col);
-                        println!("  chars are: '{}' above '{}'", above, below);
-                        println!("Context:");
-                        println!("  row0: {:?}", run0);
-                        println!("  row1: {:?}", run1);
-                        assert!(false);
-                    }
-                }
-            }
-
-            /*
-            if row >= height - 1{
-                break;
-            }
-            for col in 0..run.chars().count() {
-                let c = run.chars().nth(col).unwrap();
-                let below = runs[row + 1].chars().nth(col).unwrap();
-                if all_box_drawing.contains(&c) && all_box_drawing.contains(&below) {
-                    // v connects to v
-                    if bottom_exits.contains(&c) && !top_exits.contains(&below) {
-                        assert!(false);
-                    }
-                }
-            }
-            */
-        }
-        */
-    }
-
     #[test]
     fn single_line() {
         let options = LayoutOptions::new();
@@ -673,9 +734,13 @@ mod tests {
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = "TTT";
         let width = 80;
+        let result = vec![
+            "┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
+            "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
+            "└➤ "];
         let runs = super::build_runs(width, dt, left, right, &options);
-        assertions(width, 2, &runs);
-        super::show_runs(&runs);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
     }
 
     #[test]
@@ -684,20 +749,148 @@ mod tests {
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
+                          "└➤ "];
         let runs = super::build_runs(43, dt, left, right, &options);
-        super::show_runs(&runs);
-        assertions(43, 2, &runs);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_2_1() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                          "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
+                          "└➤ "];
+        let runs = super::build_runs(30, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_2_1_stretch() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                          "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
+                          "└➤ "];
+        let runs = super::build_runs(30, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_2_1_shrink() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CC")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                          "├ CC ─────────┘  └ EEEEEEEE ┘ ",
+                          "└➤ "];
+        let runs = super::build_runs(30, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_2_2() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC"), Div::new("DDDD")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                          "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
+                          "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
+                          "└➤ "];
+        let runs = super::build_runs(30, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_2_2_shrink() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CC"), Div::new("DDDD")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                          "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
+                          "└➤ "];
+        let runs = super::build_runs(30, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_2_2_stretch() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC"), Div::new("DDD")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                          "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
+                          "└➤ "];
+        let runs = super::build_runs(30, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_2_2_stretch_more() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC"), Div::new("DDDDD")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬────────┬┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
+                          "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
+                          "└➤ "];
+        let runs = super::build_runs(30, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_left_3_2_stretch_more() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC"), Div::new("DDDDD")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬─┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
+                          "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
+                          "├ DDDDD ──────┘              ",
+                          "└➤ "];
+        let runs = super::build_runs(29, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
     }
 
     #[test]
     fn drop_right_long_short() {
-        let options = LayoutOptions::new().verbose(true);
+        let options = LayoutOptions::new();
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDDDDDD"), Div::new("EEEE")];
         let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──────┬───┬──────────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
+                          "│                        └ EEEE ────┘     ",
+                          "└➤ "];
         let runs = super::build_runs(42, dt, left, right, &options);
-        assertions(42, 3, &runs);
-        super::show_runs(&runs);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
     }
 
     #[test]
@@ -706,8 +899,57 @@ mod tests {
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
+                          "│                            └ EEEEEEEE ┘ ",
+                          "└➤ "];
         let runs = super::build_runs(42, dt, left, right, &options);
-        assertions(42, 3, &runs);
-        super::show_runs(&runs);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_right_short_long_stretch1() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
+                          "│                            └ EEEEEEEEE ┘",
+                          "└➤ "];
+        let runs = super::build_runs(42, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_right_short_long_stretch2() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──────┬──────┬───────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
+                          "│                           └ EEEEEEEEEE ┘",
+                          "└➤ "];
+        let runs = super::build_runs(42, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
+    }
+
+    #[test]
+    fn drop_right_short_long_stretch4() {
+        let options = LayoutOptions::new();
+        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
+        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEEEE")];
+        let dt = "TTT";
+        let result = vec!["┬──────┬──────┬──────┬────┬─────────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
+                          "│                         └ EEEEEEEEEEEE ┘",
+                          "└➤ "];
+        let runs = super::build_runs(42, dt, left, right, &options);
+        assert_eq!(super::format_runs(&runs), result);
+        //super::show_runs(&runs);
     }
 }
