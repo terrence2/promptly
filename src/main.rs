@@ -28,7 +28,7 @@ mod errors {
 mod layout;
 mod render;
 
-use layout::{Div, LayoutOptions, build_layout};
+use layout::{Div, Layout, LayoutOptions};
 use render::{Run, show_runs, render_with_layout};
 
 use chrono::Local;
@@ -48,7 +48,8 @@ fn run() -> Result<()> {
         (@arg time: -t --time <SECONDS> "Prior command run time.")
         (@arg width: -w --width <COLUMNS> "The terminal width to use.")
         (@arg verbose: -v --verbose "Sets the level of debugging information")
-    ).get_matches();
+    )
+            .get_matches();
     let status = matches.value_of("status").unwrap() == "0";
     let columns = matches
         .value_of("width")
@@ -85,11 +86,11 @@ fn run() -> Result<()> {
     let prior_runtime_str = format_run_time(prior_runtime);
 
     let options = LayoutOptions::new().verbose(matches.occurrences_of("verbose") > 0);
-    let runs = match build_layout(columns,
-                                  &prior_runtime_str,
-                                  left_floats,
-                                  right_floats,
-                                  &options) {
+    let runs = match Layout::build(columns,
+                                   &prior_runtime_str,
+                                   left_floats,
+                                   right_floats,
+                                   &options) {
         None => {
             let mut fail_run = Run::new(2);
             fail_run.add("➤", "prompt");
@@ -146,6 +147,7 @@ fn find_git_branch() -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::Layout;
 
     fn format_runs(layout: &Vec<Run>) -> Vec<String> {
         layout
@@ -163,7 +165,7 @@ mod tests {
         let result = vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
                           "└➤ "];
-        let layout = super::build_layout(80, dt, left, right, &options).unwrap();
+        let layout = Layout::build(80, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(80, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -178,7 +180,7 @@ mod tests {
         let result = vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
                           "└➤ "];
-        let layout = super::build_layout(43, dt, left, right, &options).unwrap();
+        let layout = Layout::build(43, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(43, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -194,7 +196,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -210,7 +212,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -226,7 +228,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─────────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -245,7 +247,7 @@ mod tests {
                           "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -264,7 +266,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -283,7 +285,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -302,7 +304,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -322,7 +324,7 @@ mod tests {
                           "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
                           "├ DDDDD ──────┘              ",
                           "└➤ "];
-        let layout = super::build_layout(29, dt, left, right, &options).unwrap();
+        let layout = Layout::build(29, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(29, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -338,7 +340,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
                           "│                        └ EEEE ────┘     ",
                           "└➤ "];
-        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -354,7 +356,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
                           "│                            └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -370,7 +372,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
                           "│                            └ EEEEEEEEE ┘",
                           "└➤ "];
-        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -386,7 +388,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
                           "│                           └ EEEEEEEEEE ┘",
                           "└➤ "];
-        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -402,7 +404,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
                           "│                         └ EEEEEEEEEEEE ┘",
                           "└➤ "];
-        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);

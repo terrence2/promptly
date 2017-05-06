@@ -54,8 +54,8 @@ impl Run {
 
     fn repeat(&mut self, c: char, cnt: usize, fmt: &'static str) {
         self.add(&std::iter::repeat(c.to_string())
-            .take(cnt)
-            .collect::<String>(),
+                      .take(cnt)
+                      .collect::<String>(),
                  fmt);
     }
 
@@ -64,26 +64,26 @@ impl Run {
     }
 
     fn add_div(&mut self, div: &Div) {
-        for span in div.children.iter() {
+        for span in div.iter_spans() {
             self.add_span(span);
         }
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
         return match self.cells[offset] {
-            '─' => true,
-            '│' => true,
-            '┼' => true,
-            '┌' => true,
-            '└' => true,
-            '┐' => true,
-            '┘' => true,
-            '├' => true,
-            '┤' => true,
-            '┬' => true,
-            '┴' => true,
-            _ => false,
-        };
+                   '─' => true,
+                   '│' => true,
+                   '┼' => true,
+                   '┌' => true,
+                   '└' => true,
+                   '┐' => true,
+                   '┘' => true,
+                   '├' => true,
+                   '┤' => true,
+                   '┬' => true,
+                   '┴' => true,
+                   _ => false,
+               };
     }
 
     fn find_time_corner_border(&self, start: usize) -> Option<usize> {
@@ -172,10 +172,10 @@ pub fn show_runs(layout: &Vec<Run>) {
 }
 
 pub fn render_with_layout(columns: usize,
-                      layout: &Layout,
-                      prior_dt: &str,
-                      options: &LayoutOptions)
-                      -> Vec<Run> {
+                          layout: &Layout,
+                          prior_dt: &str,
+                          options: &LayoutOptions)
+                          -> Vec<Run> {
     // MEASUREMENTS:
     //
     //  v------------------- columns ---------------------v
