@@ -18,6 +18,8 @@
 #[macro_use]
 extern crate error_chain;
 extern crate chrono;
+#[macro_use]
+extern crate clap;
 extern crate git2;
 
 mod errors {
@@ -28,22 +30,32 @@ use chrono::Local;
 use errors::*;
 use git2::Repository;
 use std::cmp;
-use std::env::{args, current_dir, var};
+use std::env::{current_dir, var};
 
 const DATE_FORMAT: &'static str = "%d %b %H:%M:%S";
 
 quick_main!(run);
 fn run() -> Result<()> {
-    // This is not meant to be human callable, so worry about arg parsing later.
-    // The format is currently: <status> <columns> <runtime_seconds>
-    let args = args().collect::<Vec<String>>();
-    let status = "0" == &args[1];
-    let columns = args[2]
+    let matches = clap_app!(promptly =>
+        (version: "0.1")
+        (author: "Terrence Cole <terrence.d.cole@gmail.com>")
+        (about: "Shows a shell prompt, quickly.")
+        (@arg status: -s --status <CODE> "Prior command exit code.")
+        (@arg time: -t --time <SECONDS> "Prior command run time.")
+        (@arg width: -w --width <COLUMNS> "The terminal width to use.")
+        (@arg verbose: -v --verbose "Sets the level of debugging information")
+    ).get_matches();
+    let status = matches.value_of("status").unwrap() == "0";
+    let columns = matches
+        .value_of("width")
+        .unwrap()
         .parse::<usize>()
-        .chain_err(|| "expected usize columns")?;
-    let prior_runtime = args[3]
+        .chain_err(|| "expected positive integer width")?;
+    let prior_runtime = matches
+        .value_of("time")
+        .unwrap()
         .parse::<i32>()
-        .chain_err(|| "expected i32 run time")?;
+        .chain_err(|| "expected integer time")?;
 
     let mut left_floats = Vec::<Div>::new();
     let mut right_floats = Vec::<Div>::new();
@@ -294,13 +306,6 @@ impl Run {
         }
         return out;
     }
-}
-
-fn format_runs(layout: &Vec<Run>) -> Vec<String> {
-    layout
-        .iter()
-        .map(|r| r.format())
-        .collect::<Vec<String>>()
 }
 
 fn show_runs(layout: &Vec<Run>) {
@@ -782,6 +787,13 @@ fn find_git_branch() -> Option<String> {
 mod tests {
     use super::*;
 
+    fn format_runs(layout: &Vec<Run>) -> Vec<String> {
+        layout
+            .iter()
+            .map(|r| r.format())
+            .collect::<Vec<String>>()
+    }
+
     #[test]
     fn single_line() {
         let options = LayoutOptions::new();
@@ -793,7 +805,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(80, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(80, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -808,7 +820,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(43, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(43, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -824,7 +836,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -840,7 +852,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -856,7 +868,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -875,7 +887,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -894,7 +906,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -913,7 +925,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -932,7 +944,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(30, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -952,7 +964,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(29, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(29, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -968,7 +980,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -984,7 +996,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -1000,7 +1012,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -1016,7 +1028,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 
@@ -1032,7 +1044,7 @@ mod tests {
                           "└➤ "];
         let layout = super::build_layout(42, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
-        assert_eq!(super::format_runs(&runs), result);
+        assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
     }
 }
