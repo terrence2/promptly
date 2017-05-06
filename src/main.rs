@@ -28,7 +28,7 @@ mod errors {
 mod layout;
 mod render;
 
-use layout::{Div, Span, Layout, LayoutOptions};
+use layout::{Color, Style, Div, Span, Layout, LayoutOptions};
 use render::Run;
 
 use chrono::Local;
@@ -62,6 +62,9 @@ fn run() -> Result<()> {
         .parse::<i32>()
         .chain_err(|| "expected integer time")?;
 
+    let border_template = Span::new("");
+    let prompt_template = Span::new("");
+
     let mut left_floats = Vec::<Div>::new();
     let mut right_floats = Vec::<Div>::new();
 
@@ -87,6 +90,8 @@ fn run() -> Result<()> {
 
     let options = LayoutOptions::new()
         .verbose(matches.occurrences_of("verbose") > 0)
+        .border_template(border_template)
+        .prompt_template(prompt_template)
         .width(columns);
     let runs = match Layout::build(prior_runtime, left_floats, right_floats, &options) {
         Some(layout) => Run::render_layout(&layout),
@@ -100,7 +105,7 @@ fn run() -> Result<()> {
 fn format_run_time(t: i32) -> Div {
     let mut out = Div::new_empty();
     if t == 0 {
-        out.add_span(Span::new("ε", "purple"));
+        out.add_span(Span::new("ε").foreground(Color::Purple));
         return out;
     }
 
@@ -108,18 +113,18 @@ fn format_run_time(t: i32) -> Div {
     if s > 3600 {
         let h = s / 3600;
         s = s - 3600 * h;
-        out.add_span(Span::new(&format!("{}", h), "purple"));
-        out.add_span(Span::new("h", "gray"))
+        out.add_span(Span::new(&format!("{}", h)).foreground(Color::Purple));
+        out.add_span(Span::new("h").foreground(Color::White).dimmed());
     }
     if s > 60 {
         let m = s / 60;
         s = s - 60 * m;
-        out.add_span(Span::new(&format!("{}", m), "purple"));
-        out.add_span(Span::new("m", "gray"))
+        out.add_span(Span::new(&format!("{}", m)).foreground(Color::Purple));
+        out.add_span(Span::new("m").foreground(Color::White).dimmed());
     }
     if s > 0 {
-        out.add_span(Span::new(&format!("{}", s), "purple"));
-        out.add_span(Span::new("s", "gray"))
+        out.add_span(Span::new(&format!("{}", s)).foreground(Color::Purple));
+        out.add_span(Span::new("s").foreground(Color::White).dimmed());
     }
     return out;
 }

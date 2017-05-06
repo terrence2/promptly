@@ -15,25 +15,93 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-use std;
 use std::cmp;
+use std::collections::HashSet;
+use std;
+
+#[derive(Debug, PartialEq)]
+pub enum Color {
+    Black = 30,
+    Red = 31,
+    Green = 32,
+    Yellow = 33,
+    Blue = 34,
+    Purple = 35,
+    Cyan = 36,
+    White = 37,
+}
+
+impl Color {
+    fn encode_foreground(self) -> u8 {
+        return self as u8;
+    }
+
+    fn encode_background(self) -> u8 {
+        self.encode_foreground() + 10
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum Style {
+    Bold = 1,
+    Dimmed = 2,
+    Italic = 3,
+    Underline = 4,
+    Blink = 5,
+    Reverse = 7,
+    Hidden = 8,
+    StrikeThrough = 9,
+}
+
+impl Style {
+    fn encode(self) -> u8 {
+        return self as u8;
+    }
+}
 
 #[derive(Debug, PartialEq)]
 pub struct Span {
-    pub color: &'static str,
     pub content: String,
+    foreground: Option<Color>,
+    background: Option<Color>,
+    styles: HashSet<Style>,
 }
 
 impl Span {
-    pub fn new(content: &str, color: &'static str) -> Self {
+    pub fn new(content: &str) -> Self {
         Span {
-            color: color,
             content: content.to_owned(),
+            foreground: None,
+            background: None,
+            styles: HashSet::new(),
         }
     }
 
     pub fn width(&self) -> usize {
         return self.content.chars().count();
+    }
+
+    pub fn foreground(mut self, clr: Color) -> Self {
+        self.foreground = Some(clr);
+        return self;
+    }
+
+    pub fn background(mut self, clr: Color) -> Self {
+        self.background = Some(clr);
+        return self;
+    }
+
+    pub fn dimmed(mut self) -> Self {
+        self.styles.insert(Style::Dimmed);
+        return self;
+    }
+
+    pub fn get_reset_style() -> String {
+        "".to_owned()
+    }
+
+    pub fn format_style(&self) -> String {
+        "".to_owned()
     }
 }
 
@@ -44,7 +112,7 @@ pub struct Div {
 
 impl Div {
     pub fn new(a: &str) -> Self {
-        Div { children: vec![Span::new(a, "default")] }
+        Div { children: vec![Span::new(a)] }
     }
 
     pub fn new_empty() -> Self {
@@ -56,11 +124,7 @@ impl Div {
     }
 
     pub fn new3(a: &str, b: &str, c: &str) -> Self {
-        Div {
-            children: vec![Span::new(a, "default"),
-                           Span::new(b, "default"),
-                           Span::new(c, "default")],
-        }
+        Div { children: vec![Span::new(a), Span::new(b), Span::new(c)] }
     }
 
     pub fn width(&self) -> usize {
@@ -73,16 +137,27 @@ impl Div {
 }
 
 pub struct LayoutOptions {
-    pub verbose: bool,
     pub width: usize,
+    pub verbose: bool,
+    pub use_color: bool,
+    pub border_template: Span,
+    pub prompt_template: Span,
 }
 
 impl LayoutOptions {
     pub fn new() -> LayoutOptions {
         LayoutOptions {
-            verbose: false,
             width: 80,
+            verbose: false,
+            use_color: true,
+            border_template: Span::new(""),
+            prompt_template: Span::new(""),
         }
+    }
+
+    pub fn width(mut self, value: usize) -> LayoutOptions {
+        self.width = value;
+        return self;
     }
 
     pub fn verbose(mut self, value: bool) -> LayoutOptions {
@@ -90,8 +165,18 @@ impl LayoutOptions {
         return self;
     }
 
-    pub fn width(mut self, value: usize) -> LayoutOptions {
-        self.width = value;
+    pub fn use_color(mut self, value: bool) -> LayoutOptions {
+        self.use_color = value;
+        return self;
+    }
+
+    pub fn border_template(mut self, value: Span) -> LayoutOptions {
+        self.border_template = value;
+        return self;
+    }
+
+    pub fn prompt_template(mut self, value: Span) -> LayoutOptions {
+        self.prompt_template = value;
         return self;
     }
 }
@@ -104,6 +189,8 @@ pub struct Layout {
     pub left_by_row: Vec<Vec<Div>>,
     pub right_by_row: Vec<Vec<Div>>,
     pub prior_runtime: Div,
+    pub border_format: String,
+    pub prompt_format: String,
 }
 
 impl Layout {
@@ -239,7 +326,9 @@ impl Layout {
                                             cmp::max(h_min_left, h_max_right),
                                             left_floats,
                                             right_floats,
-                                            prior_dt));
+                                            prior_dt,
+                                            options.border_template.format_style(),
+                                            options.prompt_template.format_style()));
                 }
             }
             None => {
@@ -285,7 +374,9 @@ impl Layout {
                                 cmp::max(h_max_left, h_min_right),
                                 left_floats,
                                 right_floats,
-                                prior_dt));
+                                prior_dt,
+                                options.border_template.format_style(),
+                                options.prompt_template.format_style()));
     }
 
     fn new(left_extent: usize,
@@ -294,7 +385,9 @@ impl Layout {
            height: usize,
            left_floats: Vec<Div>,
            right_floats: Vec<Div>,
-           prior_runtime: Div)
+           prior_runtime: Div,
+           border_format: String,
+           prompt_format: String)
            -> Self {
         Layout {
             left_extent: left_extent,
@@ -304,6 +397,8 @@ impl Layout {
             left_by_row: Self::split_for_width(left_extent, left_floats),
             right_by_row: Self::split_for_width(right_extent, right_floats),
             prior_runtime: prior_runtime,
+            border_format: border_format,
+            prompt_format: prompt_format,
         }
     }
 

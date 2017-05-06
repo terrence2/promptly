@@ -19,38 +19,58 @@ use layout::{Div, Span, Layout};
 
 use std;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Format {
+    Clear,
+    Border,
+    Prompt,
+    Span(String),
+}
+
 #[derive(Debug)]
 pub struct Run {
     width: usize,
     cells: Vec<char>,
-    formats: Vec<Option<&'static str>>,
+    formats: Vec<Option<Format>>,
     offset: usize,
-    last_format: &'static str,
+    last_format: Format,
+    clear_format: String,
+    border_format: String,
+    prompt_format: String,
 }
 
 impl Run {
     pub fn get_fallback_run() -> Vec<Self> {
-        let mut fail_run = Run::new(2);
-        fail_run.add("➤", "prompt");
-        fail_run.add(" ", "clear");
-        return vec![fail_run];
+        vec![Run {
+            width: 2,
+            cells: vec!['>', ' '],
+            formats: vec![None, None],
+            offset: 2,
+            last_format: Format::Clear,
+            clear_format: "".to_owned(),
+            border_format: "".to_owned(),
+            prompt_format: "".to_owned(),
+        }]
     }
 
-    fn new(width: usize) -> Self {
+    fn new(width: usize, layout: &Layout) -> Self {
         Run {
             width: width,
             cells: std::iter::repeat(' ').take(width).collect::<Vec<char>>(),
             formats: std::iter::repeat(None)
                 .take(width)
-                .collect::<Vec<Option<&'static str>>>(),
+                .collect::<Vec<Option<Format>>>(),
             offset: 0,
-            last_format: "",
+            last_format: Format::Clear,
+            clear_format: Span::get_reset_style(),
+            border_format: layout.border_format.clone(),
+            prompt_format: layout.prompt_format.clone(),
         }
     }
 
-    fn add(&mut self, s: &str, fmt: &'static str) {
+    fn add_formatted(&mut self, s: &str, fmt: Format) {
         if fmt != self.last_format {
-            self.last_format = fmt;
+            self.last_format = fmt.clone();
             self.formats[self.offset] = Some(fmt);
         }
         for c in s.chars() {
@@ -59,21 +79,39 @@ impl Run {
         }
     }
 
-    fn repeat(&mut self, c: char, cnt: usize, fmt: &'static str) {
-        self.add(&std::iter::repeat(c.to_string())
-                      .take(cnt)
-                      .collect::<String>(),
-                 fmt);
+    fn add(&mut self, s: &str) {
+        self.add_formatted(s, Format::Clear);
     }
 
-    fn add_span(&mut self, span: &Span) {
-        self.add(&span.content, span.color);
+    fn add_border(&mut self, s: &str) {
+        self.add_formatted(s, Format::Border);
+    }
+
+    fn add_prompt(&mut self, s: &str) {
+        self.add_formatted(s, Format::Prompt);
+    }
+
+    fn repeat(&mut self, c: char, cnt: usize) {
+        self.add(&std::iter::repeat(c.to_string())
+                      .take(cnt)
+                      .collect::<String>());
+    }
+
+    fn repeat_border(&mut self, c: char, cnt: usize) {
+        self.add_border(&std::iter::repeat(c.to_string())
+            .take(cnt)
+            .collect::<String>());
     }
 
     fn add_div(&mut self, div: &Div) {
         for span in div.iter_spans() {
             self.add_span(span);
         }
+    }
+
+    fn add_span(&mut self, span: &Span) {
+        // TODO: implement format strings.
+        self.add_formatted(&span.content, Format::Span("".to_owned()));
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
@@ -165,8 +203,8 @@ impl Run {
 
     pub fn format(&self) -> String {
         let mut out = "".to_owned();
-        for c in self.cells.iter() {
-            out.push(*c);
+        for (ch, color) in self.cells.iter().zip(self.formats.iter()) {
+            out.push(*ch);
         }
         return out;
     }
@@ -214,60 +252,60 @@ impl Run {
         let right_end = right_start + layout.right_extent;
 
         // row 0
-        let mut row0 = Run::new(layout.width);
-        row0.repeat('─', right_end, "border");
-        row0.add("┐", "border");
-        row0.add(" ", "clear");
+        let mut row0 = Run::new(layout.width, layout);
+        row0.repeat_border('─', right_end);
+        row0.add_border("┐");
+        row0.add(" ");
         row0.add_div(&layout.prior_runtime);
-        row0.add(" ", "clear");
+        row0.add(" ");
         runs.push(row0);
 
         // rows n+
         for i in 0..layout.height {
-            let mut row = Run::new(layout.width);
+            let mut row = Run::new(layout.width, layout);
             runs[i].add_south_border(row.offset);
-            row.add("│", "border");
+            row.add_border("│");
 
             // Emit LEFT
             if layout.left_by_row.len() > i {
                 for f in layout.left_by_row[i].iter() {
                     row.add_east_border();
-                    row.add(" ", "clear");
+                    row.add(" ");
                     row.add_div(f);
-                    row.add(" ", "clear");
+                    row.add(" ");
 
                     if f == layout.left_by_row[i].last().unwrap() {
                         let to_right = layout.left_extent - row.offset;
-                        row.repeat('─', to_right, "border");
+                        row.repeat_border('─', to_right);
                     }
                     if runs[i].is_border_at(row.offset) {
                         runs[i].add_south_border(row.offset);
-                        row.add("┘", "border");
+                        row.add_border("┘");
                     } else {
-                        row.add("─", "border");
+                        row.add_border("─");
                     }
                 }
             }
 
             // Emit CENTER
             let to_right = right_start - row.offset;
-            row.repeat(' ', to_right, "clear");
+            row.repeat(' ', to_right);
 
             // Emit RIGHT
             if layout.right_by_row.len() > i {
                 runs[i].add_south_border(row.offset);
-                row.add("└", "border");
+                row.add_border("└");
                 for f in layout.right_by_row[i].iter() {
-                    row.add(" ", "clear");
+                    row.add(" ");
                     row.add_div(f);
-                    row.add(" ", "clear");
+                    row.add(" ");
 
                     if i == 0 && f == layout.right_by_row[i].last().unwrap() {
                         match runs[i].find_time_corner_border(row.offset) {
                             Some(next_border) => {
                                 let offset = next_border - row.offset;
                                 if offset > 0 {
-                                    row.repeat('─', offset, "border")
+                                    row.repeat_border('─', offset);
                                 }
                             }
                             None => {}
@@ -277,28 +315,28 @@ impl Run {
                             Some(next_border) => {
                                 let offset = next_border - row.offset;
                                 if offset > 0 {
-                                    row.repeat('─', offset, "border")
+                                    row.repeat_border('─', offset);
                                 }
                             }
                             None => {}
                         }
                     }
                     runs[i].add_south_border(row.offset);
-                    row.add("┘", "border");
+                    row.add_border("┘");
                 }
                 if i == 0 {
                     let to_end = layout.width - row.offset;
                     row.add_east_border();
-                    row.repeat('─', to_end, "border");
+                    row.repeat_border('─', to_end);
                 }
             }
             runs.push(row);
         }
 
-        let mut run_last = Run::new(3);
-        run_last.add("└", "border");
-        run_last.add("➤", "prompt");
-        run_last.add(" ", "clear");
+        let mut run_last = Run::new(3, layout);
+        run_last.add_border("└");
+        run_last.add_prompt("➤");
+        run_last.add(" ");
 
         runs.push(run_last);
         return runs;
