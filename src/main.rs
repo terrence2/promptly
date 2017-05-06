@@ -36,7 +36,7 @@ use errors::*;
 use git2::Repository;
 use std::env::{current_dir, var};
 
-const DATE_FORMAT: &'static str = "%d %b %H:%M:%S";
+const DATE_FORMAT: &str = "%d %b %H:%M:%S";
 
 quick_main!(run);
 fn run() -> Result<()> {
@@ -74,13 +74,13 @@ fn run() -> Result<()> {
     } else {
         raw_path_str.to_owned()
     };
-    left_floats.push(Div::new3(" ", &path_str, " "));
+    left_floats.push(Div::new(&path_str));
 
     let current_time = Local::now();
-    right_floats.push(Div::new3(" ", &current_time.format(DATE_FORMAT).to_string(), " "));
+    right_floats.push(Div::new(&current_time.format(DATE_FORMAT).to_string()));
 
     let git_branch = find_git_branch();
-    git_branch.map(|branch| left_floats.push(Div::new3(" @ git {", &branch, "} ")));
+    git_branch.map(|branch| left_floats.push(Div::new3("@ git {", &branch, "}")));
 
     let prior_runtime_str = format_run_time(prior_runtime);
 
