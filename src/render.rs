@@ -181,7 +181,7 @@ impl Run {
         }
     }
 
-    pub fn render_layout(columns: usize, layout: &Layout, prior_dt: &str) -> Vec<Self> {
+    pub fn render_layout(layout: &Layout) -> Vec<Self> {
         // MEASUREMENTS:
         //
         //  v------------------- columns ---------------------v
@@ -209,21 +209,21 @@ impl Run {
         //  └➤ ls foo/bar
         //
         let mut runs: Vec<Run> = Vec::new();
-        let right_start = columns - (2 + prior_dt.chars().count() + 1) - layout.right_extent;
+        let right_start = layout.width - (2 + layout.prior_runtime.chars().count() + 1) - layout.right_extent;
         let right_end = right_start + layout.right_extent;
 
         // row 0
-        let mut row0 = Run::new(columns);
+        let mut row0 = Run::new(layout.width);
         row0.repeat('─', right_end, "border");
         row0.add("┐", "border");
         row0.add(" ", "clear");
-        row0.add_span(&Span::new(prior_dt));
+        row0.add_span(&Span::new(&layout.prior_runtime));
         row0.add(" ", "clear");
         runs.push(row0);
 
         // rows n+
         for i in 0..layout.height {
-            let mut row = Run::new(columns);
+            let mut row = Run::new(layout.width);
             runs[i].add_south_border(row.offset);
             row.add("│", "border");
 
@@ -286,7 +286,7 @@ impl Run {
                     row.add("┘", "border");
                 }
                 if i == 0 {
-                    let to_end = columns - row.offset;
+                    let to_end = layout.width - row.offset;
                     row.add_east_border();
                     row.repeat('─', to_end, "border");
                 }

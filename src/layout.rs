@@ -87,9 +87,11 @@ impl LayoutOptions {
 pub struct Layout {
     pub left_extent: usize,
     pub right_extent: usize,
+    pub width: usize,
     pub height: usize,
     pub left_by_row: Vec<Vec<Div>>,
     pub right_by_row: Vec<Vec<Div>>,
+    pub prior_runtime: String,
 }
 
 impl Layout {
@@ -221,9 +223,11 @@ impl Layout {
                 if h_max_right >= h_min_left {
                     return Some(Layout::new(w_min_left,
                                             w_max_right,
+                                            options.width,
                                             cmp::max(h_min_left, h_max_right),
                                             left_floats,
-                                            right_floats));
+                                            right_floats,
+                                            prior_dt));
                 }
             }
             None => {
@@ -265,23 +269,29 @@ impl Layout {
 
         return Some(Layout::new(w_max_left,
                                 w_min_right,
+                                options.width,
                                 cmp::max(h_max_left, h_min_right),
                                 left_floats,
-                                right_floats));
+                                right_floats,
+                                prior_dt));
     }
 
     fn new(left_extent: usize,
            right_extent: usize,
+           width: usize,
            height: usize,
            left_floats: Vec<Div>,
-           right_floats: Vec<Div>)
+           right_floats: Vec<Div>,
+           prior_runtime: &str)
            -> Self {
         Layout {
             left_extent: left_extent,
             right_extent: right_extent,
+            width: width,
             height: height,
             left_by_row: Self::split_for_width(left_extent, left_floats),
             right_by_row: Self::split_for_width(right_extent, right_floats),
+            prior_runtime: prior_runtime.to_owned(),
         }
     }
 
