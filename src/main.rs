@@ -29,7 +29,7 @@ mod layout;
 mod render;
 
 use layout::{Div, Layout, LayoutOptions};
-use render::{Run, show_runs, render_with_layout};
+use render::{Run, render_with_layout};
 
 use chrono::Local;
 use errors::*;
@@ -97,7 +97,7 @@ fn run() -> Result<()> {
         }
         Some(layout) => render_with_layout(columns, &layout, &prior_runtime_str, &options),
     };
-    show_runs(&runs);
+    Run::show_all(&runs);
 
     return Ok(());
 }

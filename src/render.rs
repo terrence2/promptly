@@ -163,11 +163,15 @@ impl Run {
         }
         return out;
     }
-}
 
-pub fn show_runs(layout: &Vec<Run>) {
-    for run in layout {
-        println!("{}", run.format());
+    pub fn show(&self) {
+        println!("{}", self.format());
+    }
+
+    pub fn show_all(runs: &Vec<Run>) {
+        for run in runs {
+            run.show();
+        }
     }
 }
 
