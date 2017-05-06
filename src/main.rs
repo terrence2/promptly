@@ -32,7 +32,7 @@ use layout::{Color, Style, Div, Span, Layout, LayoutOptions};
 use render::Run;
 
 use chrono::Local;
-use errors::*;
+use errors::{Result, ResultExt};
 use git2::Repository;
 use std::env::{current_dir, var};
 
@@ -62,7 +62,7 @@ fn run() -> Result<()> {
         .parse::<i32>()
         .chain_err(|| "expected integer time")?;
 
-    let border_template = Span::new("");
+    let border_template = Span::new("").foreground(Color::Blue).bold();
     let prompt_template = Span::new("");
 
     let mut left_floats = Vec::<Div>::new();
@@ -150,8 +150,8 @@ mod tests {
     use super::*;
     use super::Layout;
 
-    fn format_runs(layout: &Vec<Run>) -> Vec<String> {
-        layout
+    fn format_runs(runs: &Vec<Run>) -> Vec<String> {
+        runs
             .iter()
             .map(|r| r.format())
             .collect::<Vec<String>>()
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn single_line() {
-        let options = LayoutOptions::new().width(80);
+        let options = LayoutOptions::new().width(80).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = Div::new("TTT");
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn single_line_min() {
-        let options = LayoutOptions::new().width(43);
+        let options = LayoutOptions::new().width(43).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = Div::new("TTT");
@@ -189,7 +189,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_1() {
-        let options = LayoutOptions::new().width(30);
+        let options = LayoutOptions::new().width(30).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = Div::new("TTT");
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_1_stretch() {
-        let options = LayoutOptions::new().width(30);
+        let options = LayoutOptions::new().width(30).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = Div::new("TTT");
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_1_shrink() {
-        let options = LayoutOptions::new().width(30);
+        let options = LayoutOptions::new().width(30).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = Div::new("TTT");
@@ -237,7 +237,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2() {
-        let options = LayoutOptions::new().width(30);
+        let options = LayoutOptions::new().width(30).use_color(false);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCC"),
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2_shrink() {
-        let options = LayoutOptions::new().width(30);
+        let options = LayoutOptions::new().width(30).use_color(false);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CC"),
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2_stretch() {
-        let options = LayoutOptions::new().width(30);
+        let options = LayoutOptions::new().width(30).use_color(false);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCCC"),
@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2_stretch_more() {
-        let options = LayoutOptions::new().width(30);
+        let options = LayoutOptions::new().width(30).use_color(false);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCCC"),
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn drop_left_3_2_stretch_more() {
-        let options = LayoutOptions::new().width(29);
+        let options = LayoutOptions::new().width(29).use_color(false);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCCC"),
@@ -333,7 +333,7 @@ mod tests {
 
     #[test]
     fn drop_right_long_short() {
-        let options = LayoutOptions::new().width(42);
+        let options = LayoutOptions::new().width(42).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDDDDDD"), Div::new("EEEE")];
         let dt = Div::new("TTT");
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long() {
-        let options = LayoutOptions::new().width(42);
+        let options = LayoutOptions::new().width(42).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = Div::new("TTT");
@@ -365,7 +365,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long_stretch1() {
-        let options = LayoutOptions::new().width(42);
+        let options = LayoutOptions::new().width(42).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEE")];
         let dt = Div::new("TTT");
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long_stretch2() {
-        let options = LayoutOptions::new().width(42);
+        let options = LayoutOptions::new().width(42).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEE")];
         let dt = Div::new("TTT");
@@ -397,7 +397,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long_stretch4() {
-        let options = LayoutOptions::new().width(42);
+        let options = LayoutOptions::new().width(42).use_color(false);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEEEE")];
         let dt = Div::new("TTT");

@@ -34,6 +34,7 @@ pub struct Run {
     formats: Vec<Option<Format>>,
     offset: usize,
     last_format: Format,
+    use_color: bool,
     clear_format: String,
     border_format: String,
     prompt_format: String,
@@ -47,6 +48,7 @@ impl Run {
             formats: vec![None, None],
             offset: 2,
             last_format: Format::Clear,
+            use_color: false,
             clear_format: "".to_owned(),
             border_format: "".to_owned(),
             prompt_format: "".to_owned(),
@@ -62,6 +64,7 @@ impl Run {
                 .collect::<Vec<Option<Format>>>(),
             offset: 0,
             last_format: Format::Clear,
+            use_color: layout.use_color,
             clear_format: Span::get_reset_style(),
             border_format: layout.border_format.clone(),
             prompt_format: layout.prompt_format.clone(),
@@ -110,8 +113,7 @@ impl Run {
     }
 
     fn add_span(&mut self, span: &Span) {
-        // TODO: implement format strings.
-        self.add_formatted(&span.content, Format::Span("".to_owned()));
+        self.add_formatted(&span.content, Format::Span(span.format_style()));
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
@@ -203,7 +205,18 @@ impl Run {
 
     pub fn format(&self) -> String {
         let mut out = "".to_owned();
-        for (ch, color) in self.cells.iter().zip(self.formats.iter()) {
+        for (ch, maybe_fmt) in self.cells.iter().zip(self.formats.iter()) {
+            if self.use_color {
+                for fmt in maybe_fmt.iter() {
+                    out += &Span::get_reset_style();
+                    match fmt {
+                        &Format::Clear => {},
+                        &Format::Border => out += &self.border_format,
+                        &Format::Prompt => out += &self.prompt_format,
+                        &Format::Span(ref s) => out += &s,
+                    }
+                }
+            }
             out.push(*ch);
         }
         return out;

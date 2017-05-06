@@ -19,7 +19,7 @@ use std::cmp;
 use std::collections::HashSet;
 use std;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Color {
     Black = 30,
     Red = 31,
@@ -32,8 +32,8 @@ pub enum Color {
 }
 
 impl Color {
-    fn encode_foreground(self) -> u8 {
-        return self as u8;
+    fn encode_foreground(&self) -> u8 {
+        return self.clone() as u8;
     }
 
     fn encode_background(self) -> u8 {
@@ -41,7 +41,7 @@ impl Color {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Style {
     Bold = 1,
     Dimmed = 2,
@@ -91,17 +91,65 @@ impl Span {
         return self;
     }
 
+    pub fn bold(mut self) -> Self {
+        self.styles.insert(Style::Bold);
+        return self;
+    }
+
     pub fn dimmed(mut self) -> Self {
         self.styles.insert(Style::Dimmed);
         return self;
     }
 
+    pub fn italic(mut self) -> Self {
+        self.styles.insert(Style::Italic);
+        return self;
+    }
+
+    pub fn underline(mut self) -> Self {
+        self.styles.insert(Style::Underline);
+        return self;
+    }
+
+    pub fn blink(mut self) -> Self {
+        self.styles.insert(Style::Blink);
+        return self;
+    }
+
+    pub fn reverse(mut self) -> Self {
+        self.styles.insert(Style::Reverse);
+        return self;
+    }
+
+    pub fn hidden(mut self) -> Self {
+        self.styles.insert(Style::Hidden);
+        return self;
+    }
+
+    pub fn strike_through(mut self) -> Self {
+        self.styles.insert(Style::StrikeThrough);
+        return self;
+    }
+
     pub fn get_reset_style() -> String {
-        "".to_owned()
+        "\x1B[0m".to_owned()
     }
 
     pub fn format_style(&self) -> String {
-        "".to_owned()
+        if self.foreground.is_none() && self.background.is_none() && self.styles.len() == 0 {
+            return "".to_owned();
+        }
+        let prefix = "\x1B[".to_owned();
+        let mut style = self.styles.iter()
+            .map(|s| format!("{}", (*s).clone() as u8))
+            .collect::<Vec<String>>();
+        style.append(&mut self.background.iter()
+            .map(|c| format!("{}", c.encode_foreground()))
+            .collect::<Vec<String>>());
+        style.append(&mut self.foreground.iter()
+            .map(|c| format!("{}", c.encode_foreground()))
+            .collect::<Vec<String>>());
+        return prefix + &style.join(";") + "m";
     }
 }
 
@@ -189,6 +237,7 @@ pub struct Layout {
     pub left_by_row: Vec<Vec<Div>>,
     pub right_by_row: Vec<Vec<Div>>,
     pub prior_runtime: Div,
+    pub use_color: bool,
     pub border_format: String,
     pub prompt_format: String,
 }
@@ -322,13 +371,11 @@ impl Layout {
                 if h_max_right >= h_min_left {
                     return Some(Layout::new(w_min_left,
                                             w_max_right,
-                                            options.width,
                                             cmp::max(h_min_left, h_max_right),
                                             left_floats,
                                             right_floats,
                                             prior_dt,
-                                            options.border_template.format_style(),
-                                            options.prompt_template.format_style()));
+                                            options));
                 }
             }
             None => {
@@ -370,35 +417,32 @@ impl Layout {
 
         return Some(Layout::new(w_max_left,
                                 w_min_right,
-                                options.width,
                                 cmp::max(h_max_left, h_min_right),
                                 left_floats,
                                 right_floats,
                                 prior_dt,
-                                options.border_template.format_style(),
-                                options.prompt_template.format_style()));
+                                options));
     }
 
     fn new(left_extent: usize,
            right_extent: usize,
-           width: usize,
            height: usize,
            left_floats: Vec<Div>,
            right_floats: Vec<Div>,
            prior_runtime: Div,
-           border_format: String,
-           prompt_format: String)
+           options: &LayoutOptions)
            -> Self {
         Layout {
             left_extent: left_extent,
             right_extent: right_extent,
-            width: width,
+            width: options.width,
             height: height,
             left_by_row: Self::split_for_width(left_extent, left_floats),
             right_by_row: Self::split_for_width(right_extent, right_floats),
             prior_runtime: prior_runtime,
-            border_format: border_format,
-            prompt_format: prompt_format,
+            use_color: options.use_color,
+            border_format: options.border_template.format_style(),
+            prompt_format: options.prompt_template.format_style(),
         }
     }
 
