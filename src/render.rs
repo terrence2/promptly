@@ -180,126 +180,126 @@ impl Run {
             run.show();
         }
     }
-}
 
-pub fn render_with_layout(columns: usize, layout: &Layout, prior_dt: &str) -> Vec<Run> {
-    // MEASUREMENTS:
-    //
-    //  v------------------- columns ---------------------v
-    //  ┬───────────────────────┬────────┬───────────┐ TTT
-    //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDD ┴─────
-    //  └➤ ls foo/bar
-    //
-    //   v----- left_extent ----v        v--- right_extent ---v
-    //  ┬───────────────────────┬────────┬─────────────────────┐ TTT
-    //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
-    //  └➤ ls foo/bar
-    //
-    //        ┬───────────┬─────────────────────┬───────────┐ TTT
-    //      > ├ AAAAAAAAA ┤                     ├ DDDDDDDDD ┴─────
-    // height ├ BBBBBBBBB ┤                     └ DDDDDDDDD ┘
-    //      > ├ CCCCCCCCC ┘
-    //        └➤ ls foo/bar
-    //
-    //  vv <-left_start
-    //  v---- left_end ---------v
-    //  v--------- right_start ---------v
-    //  v---------------------- right_end --------------------v
-    //  ┬───────────────────────┬────────┬─────────────────────┐ TTT
-    //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
-    //  └➤ ls foo/bar
-    //
-    let mut runs: Vec<Run> = Vec::new();
-    let right_start = columns - (2 + prior_dt.chars().count() + 1) - layout.right_extent;
-    let right_end = right_start + layout.right_extent;
+    pub fn render_layout(columns: usize, layout: &Layout, prior_dt: &str) -> Vec<Self> {
+        // MEASUREMENTS:
+        //
+        //  v------------------- columns ---------------------v
+        //  ┬───────────────────────┬────────┬───────────┐ TTT
+        //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDD ┴─────
+        //  └➤ ls foo/bar
+        //
+        //   v----- left_extent ----v        v--- right_extent ---v
+        //  ┬───────────────────────┬────────┬─────────────────────┐ TTT
+        //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
+        //  └➤ ls foo/bar
+        //
+        //        ┬───────────┬─────────────────────┬───────────┐ TTT
+        //      > ├ AAAAAAAAA ┤                     ├ DDDDDDDDD ┴─────
+        // height ├ BBBBBBBBB ┤                     └ DDDDDDDDD ┘
+        //      > ├ CCCCCCCCC ┘
+        //        └➤ ls foo/bar
+        //
+        //  vv <-left_start
+        //  v---- left_end ---------v
+        //  v--------- right_start ---------v
+        //  v---------------------- right_end --------------------v
+        //  ┬───────────────────────┬────────┬─────────────────────┐ TTT
+        //  ├ AAAAAAAAAAAAAAAAAAAAA ┘        └ DDDDDDDDDDDDDDDDDDD ┴─────
+        //  └➤ ls foo/bar
+        //
+        let mut runs: Vec<Run> = Vec::new();
+        let right_start = columns - (2 + prior_dt.chars().count() + 1) - layout.right_extent;
+        let right_end = right_start + layout.right_extent;
 
-    // row 0
-    let mut row0 = Run::new(columns);
-    row0.repeat('─', right_end, "border");
-    row0.add("┐", "border");
-    row0.add(" ", "clear");
-    row0.add_span(&Span::new(prior_dt));
-    row0.add(" ", "clear");
-    runs.push(row0);
+        // row 0
+        let mut row0 = Run::new(columns);
+        row0.repeat('─', right_end, "border");
+        row0.add("┐", "border");
+        row0.add(" ", "clear");
+        row0.add_span(&Span::new(prior_dt));
+        row0.add(" ", "clear");
+        runs.push(row0);
 
-    // rows n+
-    for i in 0..layout.height {
-        let mut row = Run::new(columns);
-        runs[i].add_south_border(row.offset);
-        row.add("│", "border");
+        // rows n+
+        for i in 0..layout.height {
+            let mut row = Run::new(columns);
+            runs[i].add_south_border(row.offset);
+            row.add("│", "border");
 
-        // Emit LEFT
-        if layout.left_by_row.len() > i {
-            for f in layout.left_by_row[i].iter() {
-                row.add_east_border();
-                row.add(" ", "clear");
-                row.add_div(f);
-                row.add(" ", "clear");
+            // Emit LEFT
+            if layout.left_by_row.len() > i {
+                for f in layout.left_by_row[i].iter() {
+                    row.add_east_border();
+                    row.add(" ", "clear");
+                    row.add_div(f);
+                    row.add(" ", "clear");
 
-                if f == layout.left_by_row[i].last().unwrap() {
-                    let to_right = layout.left_extent - row.offset;
-                    row.repeat('─', to_right, "border");
+                    if f == layout.left_by_row[i].last().unwrap() {
+                        let to_right = layout.left_extent - row.offset;
+                        row.repeat('─', to_right, "border");
+                    }
+                    if runs[i].is_border_at(row.offset) {
+                        runs[i].add_south_border(row.offset);
+                        row.add("┘", "border");
+                    } else {
+                        row.add("─", "border");
+                    }
                 }
-                if runs[i].is_border_at(row.offset) {
+            }
+
+            // Emit CENTER
+            let to_right = right_start - row.offset;
+            row.repeat(' ', to_right, "clear");
+
+            // Emit RIGHT
+            if layout.right_by_row.len() > i {
+                runs[i].add_south_border(row.offset);
+                row.add("└", "border");
+                for f in layout.right_by_row[i].iter() {
+                    row.add(" ", "clear");
+                    row.add_div(f);
+                    row.add(" ", "clear");
+
+                    if i == 0 && f == layout.right_by_row[i].last().unwrap() {
+                        match runs[i].find_time_corner_border(row.offset) {
+                            Some(next_border) => {
+                                let offset = next_border - row.offset;
+                                if offset > 0 {
+                                    row.repeat('─', offset, "border")
+                                }
+                            }
+                            None => {}
+                        }
+                    } else {
+                        match runs[i].find_next_border(row.offset) {
+                            Some(next_border) => {
+                                let offset = next_border - row.offset;
+                                if offset > 0 {
+                                    row.repeat('─', offset, "border")
+                                }
+                            }
+                            None => {}
+                        }
+                    }
                     runs[i].add_south_border(row.offset);
                     row.add("┘", "border");
-                } else {
-                    row.add("─", "border");
+                }
+                if i == 0 {
+                    let to_end = columns - row.offset;
+                    row.add_east_border();
+                    row.repeat('─', to_end, "border");
                 }
             }
+            runs.push(row);
         }
 
-        // Emit CENTER
-        let to_right = right_start - row.offset;
-        row.repeat(' ', to_right, "clear");
+        let mut run_last = Run::new(3);
+        run_last.add("└", "border");
+        run_last.add("➤", "prompt");
+        run_last.add(" ", "clear");
 
-        // Emit RIGHT
-        if layout.right_by_row.len() > i {
-            runs[i].add_south_border(row.offset);
-            row.add("└", "border");
-            for f in layout.right_by_row[i].iter() {
-                row.add(" ", "clear");
-                row.add_div(f);
-                row.add(" ", "clear");
-
-                if i == 0 && f == layout.right_by_row[i].last().unwrap() {
-                    match runs[i].find_time_corner_border(row.offset) {
-                        Some(next_border) => {
-                            let offset = next_border - row.offset;
-                            if offset > 0 {
-                                row.repeat('─', offset, "border")
-                            }
-                        }
-                        None => {}
-                    }
-                } else {
-                    match runs[i].find_next_border(row.offset) {
-                        Some(next_border) => {
-                            let offset = next_border - row.offset;
-                            if offset > 0 {
-                                row.repeat('─', offset, "border")
-                            }
-                        }
-                        None => {}
-                    }
-                }
-                runs[i].add_south_border(row.offset);
-                row.add("┘", "border");
-            }
-            if i == 0 {
-                let to_end = columns - row.offset;
-                row.add_east_border();
-                row.repeat('─', to_end, "border");
-            }
-        }
-        runs.push(row);
+        runs.push(run_last);
+        return runs;
     }
-
-    let mut run_last = Run::new(3);
-    run_last.add("└", "border");
-    run_last.add("➤", "prompt");
-    run_last.add(" ", "clear");
-
-    runs.push(run_last);
-    return runs;
 }
