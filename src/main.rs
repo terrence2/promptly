@@ -89,13 +89,8 @@ fn run() -> Result<()> {
         .verbose(matches.occurrences_of("verbose") > 0)
         .width(columns);
     let runs = match Layout::build(&prior_runtime_str, left_floats, right_floats, &options) {
-        None => {
-            let mut fail_run = Run::new(2);
-            fail_run.add("➤", "prompt");
-            fail_run.add(" ", "clear");
-            vec![fail_run]
-        }
         Some(layout) => render_with_layout(columns, &layout, &prior_runtime_str),
+        None => Run::get_fallback_run(),
     };
     Run::show_all(&runs);
 

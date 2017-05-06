@@ -29,7 +29,14 @@ pub struct Run {
 }
 
 impl Run {
-    pub fn new(width: usize) -> Self {
+    pub fn get_fallback_run() -> Vec<Self> {
+        let mut fail_run = Run::new(2);
+        fail_run.add("➤", "prompt");
+        fail_run.add(" ", "clear");
+        return vec![fail_run];
+    }
+
+    fn new(width: usize) -> Self {
         Run {
             width: width,
             cells: std::iter::repeat(' ').take(width).collect::<Vec<char>>(),
@@ -41,7 +48,7 @@ impl Run {
         }
     }
 
-    pub fn add(&mut self, s: &str, fmt: &'static str) {
+    fn add(&mut self, s: &str, fmt: &'static str) {
         if fmt != self.last_format {
             self.last_format = fmt;
             self.formats[self.offset] = Some(fmt);
