@@ -28,7 +28,7 @@ mod errors {
 mod layout;
 mod render;
 
-use layout::{Div, Layout, LayoutOptions};
+use layout::{Div, Span, Layout, LayoutOptions};
 use render::Run;
 
 use chrono::Local;
@@ -56,7 +56,7 @@ fn run() -> Result<()> {
         .unwrap()
         .parse::<usize>()
         .chain_err(|| "expected positive integer width")?;
-    let prior_runtime = matches
+    let prior_runtime_seconds = matches
         .value_of("time")
         .unwrap()
         .parse::<i32>()
@@ -83,12 +83,12 @@ fn run() -> Result<()> {
     let git_branch = find_git_branch();
     git_branch.map(|branch| left_floats.push(Div::new3("@ git {", &branch, "}")));
 
-    let prior_runtime_str = format_run_time(prior_runtime);
+    let prior_runtime = format_run_time(prior_runtime_seconds);
 
     let options = LayoutOptions::new()
         .verbose(matches.occurrences_of("verbose") > 0)
         .width(columns);
-    let runs = match Layout::build(&prior_runtime_str, left_floats, right_floats, &options) {
+    let runs = match Layout::build(prior_runtime, left_floats, right_floats, &options) {
         Some(layout) => Run::render_layout(&layout),
         None => Run::get_fallback_run(),
     };
@@ -97,26 +97,29 @@ fn run() -> Result<()> {
     return Ok(());
 }
 
-
-fn format_run_time(t: i32) -> String {
-    let mut out = "".to_owned();
+fn format_run_time(t: i32) -> Div {
+    let mut out = Div::new_empty();
     if t == 0 {
-        return "ε".to_owned();
+        out.add_span(Span::new("ε", "purple"));
+        return out;
     }
 
     let mut s = t;
     if s > 3600 {
         let h = s / 3600;
         s = s - 3600 * h;
-        out += &format!("{}h", h);
+        out.add_span(Span::new(&format!("{}", h), "purple"));
+        out.add_span(Span::new("h", "gray"))
     }
     if s > 60 {
         let m = s / 60;
         s = s - 60 * m;
-        out += &format!("{}m", m);
+        out.add_span(Span::new(&format!("{}", m), "purple"));
+        out.add_span(Span::new("m", "gray"))
     }
     if s > 0 {
-        out += &format!("{}s", s);
+        out.add_span(Span::new(&format!("{}", s), "purple"));
+        out.add_span(Span::new("s", "gray"))
     }
     return out;
 }
@@ -154,7 +157,7 @@ mod tests {
         let options = LayoutOptions::new().width(80);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
                           "└➤ "];
@@ -169,7 +172,7 @@ mod tests {
         let options = LayoutOptions::new().width(43);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
                           "└➤ "];
@@ -184,7 +187,7 @@ mod tests {
         let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
@@ -200,7 +203,7 @@ mod tests {
         let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
@@ -216,7 +219,7 @@ mod tests {
         let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─────────┘  └ EEEEEEEE ┘ ",
@@ -235,7 +238,7 @@ mod tests {
                         Div::new("CCCC"),
                         Div::new("DDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
                           "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
@@ -254,7 +257,7 @@ mod tests {
                         Div::new("CC"),
                         Div::new("DDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
@@ -273,7 +276,7 @@ mod tests {
                         Div::new("CCCCC"),
                         Div::new("DDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
@@ -292,7 +295,7 @@ mod tests {
                         Div::new("CCCCC"),
                         Div::new("DDDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬────────┬┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
@@ -311,7 +314,7 @@ mod tests {
                         Div::new("CCCCC"),
                         Div::new("DDDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬─┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
                           "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
@@ -328,7 +331,7 @@ mod tests {
         let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDDDDDD"), Div::new("EEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──────┬───┬──────────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
                           "│                        └ EEEE ────┘     ",
@@ -344,7 +347,7 @@ mod tests {
         let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
                           "│                            └ EEEEEEEE ┘ ",
@@ -360,7 +363,7 @@ mod tests {
         let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
                           "│                            └ EEEEEEEEE ┘",
@@ -376,7 +379,7 @@ mod tests {
         let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──────┬──────┬───────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
                           "│                           └ EEEEEEEEEE ┘",
@@ -392,7 +395,7 @@ mod tests {
         let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEEEE")];
-        let dt = "TTT";
+        let dt = Div::new("TTT");
         let result = vec!["┬──────┬──────┬──────┬────┬─────────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
                           "│                         └ EEEEEEEEEEEE ┘",

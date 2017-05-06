@@ -209,7 +209,8 @@ impl Run {
         //  └➤ ls foo/bar
         //
         let mut runs: Vec<Run> = Vec::new();
-        let right_start = layout.width - (2 + layout.prior_runtime.chars().count() + 1) - layout.right_extent;
+        let right_start = layout.width - (2 + layout.prior_runtime.width() + 1) -
+                          layout.right_extent;
         let right_end = right_start + layout.right_extent;
 
         // row 0
@@ -217,7 +218,7 @@ impl Run {
         row0.repeat('─', right_end, "border");
         row0.add("┐", "border");
         row0.add(" ", "clear");
-        row0.add_span(&Span::new(&layout.prior_runtime));
+        row0.add_div(&layout.prior_runtime);
         row0.add(" ", "clear");
         runs.push(row0);
 

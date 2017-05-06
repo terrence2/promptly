@@ -25,9 +25,9 @@ pub struct Span {
 }
 
 impl Span {
-    pub fn new(content: &str) -> Self {
+    pub fn new(content: &str, color: &'static str) -> Self {
         Span {
-            color: "",
+            color: color,
             content: content.to_owned(),
         }
     }
@@ -44,11 +44,23 @@ pub struct Div {
 
 impl Div {
     pub fn new(a: &str) -> Self {
-        Div { children: vec![Span::new(a)] }
+        Div { children: vec![Span::new(a, "default")] }
+    }
+
+    pub fn new_empty() -> Self {
+        Div { children: Vec::new() }
+    }
+
+    pub fn add_span(&mut self, span: Span) {
+        self.children.push(span);
     }
 
     pub fn new3(a: &str, b: &str, c: &str) -> Self {
-        Div { children: vec![Span::new(a), Span::new(b), Span::new(c)] }
+        Div {
+            children: vec![Span::new(a, "default"),
+                           Span::new(b, "default"),
+                           Span::new(c, "default")],
+        }
     }
 
     pub fn width(&self) -> usize {
@@ -91,7 +103,7 @@ pub struct Layout {
     pub height: usize,
     pub left_by_row: Vec<Vec<Div>>,
     pub right_by_row: Vec<Vec<Div>>,
-    pub prior_runtime: String,
+    pub prior_runtime: Div,
 }
 
 impl Layout {
@@ -144,7 +156,7 @@ impl Layout {
     //
     //     ├ ┤ ┬ ┴
     //
-    pub fn build(prior_dt: &str,
+    pub fn build(prior_dt: Div,
                  left_floats: Vec<Div>,
                  right_floats: Vec<Div>,
                  options: &LayoutOptions)
@@ -173,7 +185,7 @@ impl Layout {
         //      > ├ CCCCCCCCC ┘
         //        └➤ ls foo/bar
         //
-        let inner_width = options.width - (2 + prior_dt.chars().count() + 1);
+        let inner_width = options.width - (2 + prior_dt.width() + 1);
         let outer_width = options.width - 1;
         if options.verbose {
             println!("columns:     {}", options.width);
@@ -240,10 +252,10 @@ impl Layout {
 
         // If the maximal right did not allow the left side to fit well, re-try with a minimal right.
         let (w_min_right, h_min_right) = Self::find_minimal_width(&right_floats,
-                                                                  2 + prior_dt.chars().count());
+                                                                  2 + prior_dt.width());
         if options.verbose {
             println!("Pass3:");
-            println!("    bump:    {}", 2 + prior_dt.chars().count());
+            println!("    bump:    {}", 2 + prior_dt.width());
             println!("    w_min_r: {}", w_min_right);
             println!("    h_min_r: {}", h_min_right);
         }
@@ -282,7 +294,7 @@ impl Layout {
            height: usize,
            left_floats: Vec<Div>,
            right_floats: Vec<Div>,
-           prior_runtime: &str)
+           prior_runtime: Div)
            -> Self {
         Layout {
             left_extent: left_extent,
@@ -291,7 +303,7 @@ impl Layout {
             height: height,
             left_by_row: Self::split_for_width(left_extent, left_floats),
             right_by_row: Self::split_for_width(right_extent, right_floats),
-            prior_runtime: prior_runtime.to_owned(),
+            prior_runtime: prior_runtime,
         }
     }
 
