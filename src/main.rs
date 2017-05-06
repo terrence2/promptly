@@ -63,8 +63,18 @@ fn run() -> Result<()> {
     let prior_runtime_str = format_run_time(prior_runtime);
 
     let options = LayoutOptions::new();
-    let layout = build_runs(columns, &prior_runtime_str, left_floats, right_floats, &options);
-    show_runs(&layout);
+    let runs = match build_layout(columns, &prior_runtime_str, left_floats, right_floats, &options) {
+        None => {
+            let mut fail_run = Run::new(2);
+            fail_run.add("➤", "prompt");
+            fail_run.add(" ", "clear");
+            vec![fail_run]
+        },
+        Some(layout) => {
+            render_with_layout(columns, &layout, &prior_runtime_str, &options)
+        }
+    };
+    show_runs(&runs);
 
     return Ok(());
 }
@@ -80,6 +90,7 @@ impl Span {
     fn new(content: &str) -> Self {
         Span { color: "", content: content.to_owned() }
     }
+
     fn width(&self) -> usize {
         return self.content.chars().count();
     }
@@ -95,11 +106,33 @@ impl Div {
     fn new(a: &str) -> Self {
         Div { children: vec![Span::new(a)] }
     }
+
     fn new3(a: &str, b: &str, c: &str) -> Self {
         Div { children: vec![Span::new(a), Span::new(b), Span::new(c)] }
     }
+
     fn width(&self) -> usize {
         return self.children.iter().map(|s| s.width()).sum();
+    }
+}
+
+struct Layout {
+    left_extent: usize,
+    right_extent: usize,
+    height: usize,
+    left_by_row: Vec<Vec<Div>>,
+    right_by_row: Vec<Vec<Div>>,
+}
+
+impl Layout {
+    fn new(left_extent: usize, right_extent: usize, height: usize, left_floats: Vec<Div>, right_floats: Vec<Div>) -> Self {
+        Layout {
+            left_extent: left_extent,
+            right_extent: right_extent,
+            height: height,
+            left_by_row: split_for_width(left_extent, left_floats),
+            right_by_row: split_for_width(right_extent, right_floats),
+        }
     }
 }
 
@@ -319,16 +352,12 @@ impl LayoutOptions {
 //
 //     ├ ┤ ┬ ┴
 //
-fn build_runs(columns: usize,
-              prior_dt: &str,
-              left_floats: Vec<Div>,
-              right_floats: Vec<Div>,
-              options: &LayoutOptions)
-              -> Vec<Run> {
-    let mut fail_run = Run::new(2);
-    fail_run.add("➤", "prompt");
-    fail_run.add(" ", "clear");
-    let fail = vec![fail_run];
+fn build_layout(columns: usize,
+                prior_dt: &str,
+                left_floats: Vec<Div>,
+                right_floats: Vec<Div>,
+                options: &LayoutOptions)
+                -> Option<Layout> {
 
     // MEASUREMENTS:
     //
@@ -373,7 +402,7 @@ fn build_runs(columns: usize,
     // ├ A ┘ ├ FFFF ┼─────
     //       └ EE ──┘
     let (w_max_right, h_max_right) = match pack_into_width(inner_width - 5, outer_width - 5, &right_floats) {
-        None => return fail,
+        None => return None,
         Some(p) => p,
     };
     if options.verbose {
@@ -400,14 +429,7 @@ fn build_runs(columns: usize,
                 println!("    h_min_l: {}", h_min_left);
             }
             if h_max_right >= h_min_left {
-                return do_layout(columns,
-                                 w_min_left,
-                                 w_max_right,
-                                 cmp::max(h_min_left, h_max_right),
-                                 prior_dt,
-                                 left_floats,
-                                 right_floats,
-                                 options);
+                return Some(Layout::new(w_min_left, w_max_right, cmp::max(h_min_left, h_max_right), left_floats, right_floats));
             }
         }
         None => {
@@ -415,7 +437,6 @@ fn build_runs(columns: usize,
                 println!("Pass2:");
                 println!("    left does not fit into: {}", minimal_left);
             }
-
         }
     };
 
@@ -438,7 +459,7 @@ fn build_runs(columns: usize,
     let maximal_left = inner_width - w_min_right - 1;
     let (w_max_left, h_max_left) = match pack_into_width(maximal_left, maximal_left,
                                                          &left_floats) {
-        None => return fail,
+        None => return None,
         Some(p) => p,
     };
     if options.verbose {
@@ -448,25 +469,14 @@ fn build_runs(columns: usize,
         println!("    h_max_l: {}", h_max_left);
     }
 
-    return do_layout(columns,
-                     w_max_left,
-                     w_min_right,
-                     cmp::max(h_max_left, h_min_right),
-                     prior_dt,
-                     left_floats,
-                     right_floats,
-                     options);
+    return Some(Layout::new(w_max_left, w_min_right, cmp::max(h_max_left, h_min_right), left_floats, right_floats));
 }
 
-fn do_layout(columns: usize,
-             left_extent: usize,
-             right_extent: usize,
-             height: usize,
-             prior_dt: &str,
-             left_floats: Vec<Div>,
-             right_floats: Vec<Div>,
-             options: &LayoutOptions)
-             -> Vec<Run> {
+fn render_with_layout(columns: usize,
+                      layout: &Layout,
+                      prior_dt: &str,
+                      options: &LayoutOptions)
+                      -> Vec<Run> {
     // MEASUREMENTS:
     //
     //  v------------------- columns ---------------------v
@@ -495,24 +505,22 @@ fn do_layout(columns: usize,
     //
     let mut runs: Vec<Run> = Vec::new();
     let left_start = 1;
-    let left_end = left_start + left_extent;
-    let right_start = columns - (2 + prior_dt.chars().count() + 1) - right_extent;
-    let right_end = right_start + right_extent;
-    let left_by_row = split_for_width(left_extent, left_floats);
-    let right_by_row = split_for_width(right_extent, right_floats);
+    let left_end = left_start + layout.left_extent;
+    let right_start = columns - (2 + prior_dt.chars().count() + 1) - layout.right_extent;
+    let right_end = right_start + layout.right_extent;
 
     if options.verbose {
         println!("metrics:");
-        println!("  height:       {}", height);
-        println!("  left_extent:  {}", left_extent);
+        println!("  height:       {}", layout.height);
+        println!("  left_extent:  {}", layout.left_extent);
         println!("  left_start:   {}", left_start);
         println!("  left_end:     {}", left_end);
-        println!("  right_extent: {}", right_extent);
+        println!("  right_extent: {}", layout.right_extent);
         println!("  right_start:  {}", right_start);
         println!("  right_end:    {}", right_end);
         println!("rows are:");
-        println!("  left: {:?}", left_by_row);
-        println!("  right: {:?}", right_by_row);
+        println!("  left: {:?}", layout.left_by_row);
+        println!("  right: {:?}", layout.right_by_row);
     }
 
     // row 0
@@ -525,21 +533,21 @@ fn do_layout(columns: usize,
     runs.push(row0);
 
     // rows n+
-    for i in 0..height {
+    for i in 0..layout.height {
         let mut row = Run::new(columns);
         runs[i].add_south_border(row.offset);
         row.add("│", "border");
 
         // Emit LEFT
-        if left_by_row.len() > i {
-            for f in left_by_row[i].iter() {
+        if layout.left_by_row.len() > i {
+            for f in layout.left_by_row[i].iter() {
                 row.add_east_border();
                 row.add(" ", "clear");
                 row.add_div(f);
                 row.add(" ", "clear");
 
-                if f == left_by_row[i].last().unwrap() {
-                    let to_right = left_extent - row.offset;
+                if f == layout.left_by_row[i].last().unwrap() {
+                    let to_right = layout.left_extent - row.offset;
                     row.repeat('─', to_right, "border");
                 }
                 if runs[i].is_border_at(row.offset) {
@@ -556,15 +564,15 @@ fn do_layout(columns: usize,
         row.repeat(' ', to_right, "clear");
 
         // Emit RIGHT
-        if right_by_row.len() > i {
+        if layout.right_by_row.len() > i {
             runs[i].add_south_border(row.offset);
             row.add("└", "border");
-            for f in right_by_row[i].iter() {
+            for f in layout.right_by_row[i].iter() {
                 row.add(" ", "clear");
                 row.add_div(f);
                 row.add(" ", "clear");
 
-                if i == 0 && f == right_by_row[i].last().unwrap() {
+                if i == 0 && f == layout.right_by_row[i].last().unwrap() {
                     match runs[i].find_time_corner_border(row.offset) {
                         Some(next_border) => {
                             let offset = next_border - row.offset;
@@ -750,12 +758,12 @@ mod tests {
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = "TTT";
-        let width = 80;
         let result = vec![
             "┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
             "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
             "└➤ "];
-        let runs = super::build_runs(width, dt, left, right, &options);
+        let layout = super::build_layout(80, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(80, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -769,7 +777,8 @@ mod tests {
         let result = vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
                           "└➤ "];
-        let runs = super::build_runs(43, dt, left, right, &options);
+        let layout = super::build_layout(43, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(43, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -784,7 +793,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(30, dt, left, right, &options);
+        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -799,7 +809,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(30, dt, left, right, &options);
+        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -814,7 +825,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─────────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(30, dt, left, right, &options);
+        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -829,7 +841,8 @@ mod tests {
                           "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(30, dt, left, right, &options);
+        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -844,7 +857,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(30, dt, left, right, &options);
+        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -859,7 +873,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(30, dt, left, right, &options);
+        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -874,7 +889,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(30, dt, left, right, &options);
+        let layout = super::build_layout(30, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -890,7 +906,8 @@ mod tests {
                           "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
                           "├ DDDDD ──────┘              ",
                           "└➤ "];
-        let runs = super::build_runs(29, dt, left, right, &options);
+        let layout = super::build_layout(29, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(29, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -905,7 +922,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
                           "│                        └ EEEE ────┘     ",
                           "└➤ "];
-        let runs = super::build_runs(42, dt, left, right, &options);
+        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -920,7 +938,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
                           "│                            └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let runs = super::build_runs(42, dt, left, right, &options);
+        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -935,7 +954,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
                           "│                            └ EEEEEEEEE ┘",
                           "└➤ "];
-        let runs = super::build_runs(42, dt, left, right, &options);
+        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -950,7 +970,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
                           "│                           └ EEEEEEEEEE ┘",
                           "└➤ "];
-        let runs = super::build_runs(42, dt, left, right, &options);
+        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
@@ -965,7 +986,8 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
                           "│                         └ EEEEEEEEEEEE ┘",
                           "└➤ "];
-        let runs = super::build_runs(42, dt, left, right, &options);
+        let layout = super::build_layout(42, dt, left, right, &options).unwrap();
+        let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
         //super::show_runs(&runs);
     }
