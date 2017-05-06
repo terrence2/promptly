@@ -38,15 +38,21 @@ fn run() -> Result<()> {
     // The format is currently: <status> <columns> <runtime_seconds>
     let args = args().collect::<Vec<String>>();
     let status = "0" == &args[1];
-    let columns = args[2].parse::<usize>().chain_err(|| "expected usize columns")?;
-    let prior_runtime = args[3].parse::<i32>().chain_err(|| "expected i32 run time")?;
+    let columns = args[2]
+        .parse::<usize>()
+        .chain_err(|| "expected usize columns")?;
+    let prior_runtime = args[3]
+        .parse::<i32>()
+        .chain_err(|| "expected i32 run time")?;
 
     let mut left_floats = Vec::<Div>::new();
     let mut right_floats = Vec::<Div>::new();
 
     let path = current_dir().chain_err(|| "failed to getcwd")?;
     let raw_path_str = path.to_str().unwrap_or("<error>");
-    let home_str = var("HOME").chain_err(|| "failed to get HOME")?.to_owned();
+    let home_str = var("HOME")
+        .chain_err(|| "failed to get HOME")?
+        .to_owned();
     let path_str = if raw_path_str.starts_with(&home_str) {
         raw_path_str.replace(&home_str, "~")
     } else {
@@ -63,16 +69,18 @@ fn run() -> Result<()> {
     let prior_runtime_str = format_run_time(prior_runtime);
 
     let options = LayoutOptions::new();
-    let runs = match build_layout(columns, &prior_runtime_str, left_floats, right_floats, &options) {
+    let runs = match build_layout(columns,
+                                  &prior_runtime_str,
+                                  left_floats,
+                                  right_floats,
+                                  &options) {
         None => {
             let mut fail_run = Run::new(2);
             fail_run.add("➤", "prompt");
             fail_run.add(" ", "clear");
             vec![fail_run]
-        },
-        Some(layout) => {
-            render_with_layout(columns, &layout, &prior_runtime_str, &options)
         }
+        Some(layout) => render_with_layout(columns, &layout, &prior_runtime_str, &options),
     };
     show_runs(&runs);
 
@@ -80,15 +88,17 @@ fn run() -> Result<()> {
 }
 
 #[derive(Debug, PartialEq)]
-struct Span
-{
+struct Span {
     color: &'static str,
-    content: String
+    content: String,
 }
 
 impl Span {
     fn new(content: &str) -> Self {
-        Span { color: "", content: content.to_owned() }
+        Span {
+            color: "",
+            content: content.to_owned(),
+        }
     }
 
     fn width(&self) -> usize {
@@ -97,9 +107,8 @@ impl Span {
 }
 
 #[derive(Debug, PartialEq)]
-struct Div
-{
-    children: Vec<Span>
+struct Div {
+    children: Vec<Span>,
 }
 
 impl Div {
@@ -125,7 +134,12 @@ struct Layout {
 }
 
 impl Layout {
-    fn new(left_extent: usize, right_extent: usize, height: usize, left_floats: Vec<Div>, right_floats: Vec<Div>) -> Self {
+    fn new(left_extent: usize,
+           right_extent: usize,
+           height: usize,
+           left_floats: Vec<Div>,
+           right_floats: Vec<Div>)
+           -> Self {
         Layout {
             left_extent: left_extent,
             right_extent: right_extent,
@@ -137,13 +151,12 @@ impl Layout {
 }
 
 #[derive(Debug)]
-struct Run
-{
+struct Run {
     width: usize,
     cells: Vec<char>,
     formats: Vec<Option<&'static str>>,
     offset: usize,
-    last_format: &'static str
+    last_format: &'static str,
 }
 
 impl Run {
@@ -151,7 +164,9 @@ impl Run {
         Run {
             width: width,
             cells: std::iter::repeat(' ').take(width).collect::<Vec<char>>(),
-            formats: std::iter::repeat(None).take(width).collect::<Vec<Option<&'static str>>>(),
+            formats: std::iter::repeat(None)
+                .take(width)
+                .collect::<Vec<Option<&'static str>>>(),
             offset: 0,
             last_format: "",
         }
@@ -169,7 +184,10 @@ impl Run {
     }
 
     fn repeat(&mut self, c: char, cnt: usize, fmt: &'static str) {
-        self.add(&std::iter::repeat(c.to_string()).take(cnt).collect::<String>(), fmt);
+        self.add(&std::iter::repeat(c.to_string())
+                      .take(cnt)
+                      .collect::<String>(),
+                 fmt);
     }
 
     fn add_span(&mut self, span: &Span) {
@@ -184,19 +202,19 @@ impl Run {
 
     fn is_border_at(&self, offset: usize) -> bool {
         return match self.cells[offset] {
-            '─' => true,
-            '│' => true,
-            '┼' => true,
-            '┌' => true,
-            '└' => true,
-            '┐' => true,
-            '┘' => true,
-            '├' => true,
-            '┤' => true,
-            '┬' => true,
-            '┴' => true,
-            _ => false,
-        }
+                   '─' => true,
+                   '│' => true,
+                   '┼' => true,
+                   '┌' => true,
+                   '└' => true,
+                   '┐' => true,
+                   '┘' => true,
+                   '├' => true,
+                   '┤' => true,
+                   '┬' => true,
+                   '┴' => true,
+                   _ => false,
+               };
     }
 
     fn find_time_corner_border(&self, start: usize) -> Option<usize> {
@@ -279,7 +297,10 @@ impl Run {
 }
 
 fn format_runs(layout: &Vec<Run>) -> Vec<String> {
-    layout.iter().map(|r| r.format()).collect::<Vec<String>>()
+    layout
+        .iter()
+        .map(|r| r.format())
+        .collect::<Vec<String>>()
 }
 
 fn show_runs(layout: &Vec<Run>) {
@@ -401,10 +422,11 @@ fn build_layout(columns: usize,
     // ┬───┬─┬──────┐ TTT
     // ├ A ┘ ├ FFFF ┼─────
     //       └ EE ──┘
-    let (w_max_right, h_max_right) = match pack_into_width(inner_width - 5, outer_width - 5, &right_floats) {
-        None => return None,
-        Some(p) => p,
-    };
+    let (w_max_right, h_max_right) =
+        match pack_into_width(inner_width - 5, outer_width - 5, &right_floats) {
+            None => return None,
+            Some(p) => p,
+        };
     if options.verbose {
         println!("Pass1:");
         println!("    target0: {}", inner_width - 5);
@@ -429,7 +451,11 @@ fn build_layout(columns: usize,
                 println!("    h_min_l: {}", h_min_left);
             }
             if h_max_right >= h_min_left {
-                return Some(Layout::new(w_min_left, w_max_right, cmp::max(h_min_left, h_max_right), left_floats, right_floats));
+                return Some(Layout::new(w_min_left,
+                                        w_max_right,
+                                        cmp::max(h_min_left, h_max_right),
+                                        left_floats,
+                                        right_floats));
             }
         }
         None => {
@@ -457,11 +483,11 @@ fn build_layout(columns: usize,
     // ├ ? ┘                              ├ FFFF ───┴─────
     //                                    └ EEEEEEEEEEEEE
     let maximal_left = inner_width - w_min_right - 1;
-    let (w_max_left, h_max_left) = match pack_into_width(maximal_left, maximal_left,
-                                                         &left_floats) {
-        None => return None,
-        Some(p) => p,
-    };
+    let (w_max_left, h_max_left) =
+        match pack_into_width(maximal_left, maximal_left, &left_floats) {
+            None => return None,
+            Some(p) => p,
+        };
     if options.verbose {
         println!("Pass4:");
         println!("    maximal_left: {}", maximal_left);
@@ -469,7 +495,11 @@ fn build_layout(columns: usize,
         println!("    h_max_l: {}", h_max_left);
     }
 
-    return Some(Layout::new(w_max_left, w_min_right, cmp::max(h_max_left, h_min_right), left_floats, right_floats));
+    return Some(Layout::new(w_max_left,
+                            w_min_right,
+                            cmp::max(h_max_left, h_min_right),
+                            left_floats,
+                            right_floats));
 }
 
 fn render_with_layout(columns: usize,
@@ -579,7 +609,7 @@ fn render_with_layout(columns: usize,
                             if offset > 0 {
                                 row.repeat('─', offset, "border")
                             }
-                        },
+                        }
                         None => {}
                     }
                 } else {
@@ -589,7 +619,7 @@ fn render_with_layout(columns: usize,
                             if offset > 0 {
                                 row.repeat('─', offset, "border")
                             }
-                        },
+                        }
                         None => {}
                     }
                 }
@@ -742,10 +772,10 @@ fn find_git_branch() -> Option<String> {
         Err(_) => return None,
     };
     return Some(match head.shorthand() {
-            Some(tgt) => tgt,
-            None => "(detached)",
-        }
-        .to_owned());
+                        Some(tgt) => tgt,
+                        None => "(detached)",
+                    }
+                    .to_owned());
 }
 
 #[cfg(test)]
@@ -758,10 +788,9 @@ mod tests {
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = "TTT";
-        let result = vec![
-            "┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
-            "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
-            "└➤ "];
+        let result = vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
+                          "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
+                          "└➤ "];
         let layout = super::build_layout(80, dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(80, &layout, dt, &options);
         assert_eq!(super::format_runs(&runs), result);
@@ -834,7 +863,10 @@ mod tests {
     #[test]
     fn drop_left_2_2() {
         let options = LayoutOptions::new();
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC"), Div::new("DDDD")];
+        let left = vec![Div::new("AAAA"),
+                        Div::new("BBBB"),
+                        Div::new("CCCC"),
+                        Div::new("DDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
@@ -850,7 +882,10 @@ mod tests {
     #[test]
     fn drop_left_2_2_shrink() {
         let options = LayoutOptions::new();
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CC"), Div::new("DDDD")];
+        let left = vec![Div::new("AAAA"),
+                        Div::new("BBBB"),
+                        Div::new("CC"),
+                        Div::new("DDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
@@ -866,7 +901,10 @@ mod tests {
     #[test]
     fn drop_left_2_2_stretch() {
         let options = LayoutOptions::new();
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC"), Div::new("DDD")];
+        let left = vec![Div::new("AAAA"),
+                        Div::new("BBBB"),
+                        Div::new("CCCCC"),
+                        Div::new("DDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
         let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
@@ -882,7 +920,10 @@ mod tests {
     #[test]
     fn drop_left_2_2_stretch_more() {
         let options = LayoutOptions::new();
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC"), Div::new("DDDDD")];
+        let left = vec![Div::new("AAAA"),
+                        Div::new("BBBB"),
+                        Div::new("CCCCC"),
+                        Div::new("DDDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
         let result = vec!["┬──────┬────────┬┬──────┐ TTT ",
@@ -898,7 +939,10 @@ mod tests {
     #[test]
     fn drop_left_3_2_stretch_more() {
         let options = LayoutOptions::new();
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC"), Div::new("DDDDD")];
+        let left = vec![Div::new("AAAA"),
+                        Div::new("BBBB"),
+                        Div::new("CCCCC"),
+                        Div::new("DDDDD")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
         let result = vec!["┬──────┬──────┬─┬──────┐ TTT ",
