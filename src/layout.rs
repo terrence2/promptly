@@ -62,15 +62,24 @@ impl Div {
 
 pub struct LayoutOptions {
     pub verbose: bool,
+    pub width: usize,
 }
 
 impl LayoutOptions {
     pub fn new() -> LayoutOptions {
-        LayoutOptions { verbose: false }
+        LayoutOptions {
+            verbose: false,
+            width: 80,
+        }
     }
 
     pub fn verbose(mut self, value: bool) -> LayoutOptions {
         self.verbose = value;
+        return self;
+    }
+
+    pub fn width(mut self, value: usize) -> LayoutOptions {
+        self.width = value;
         return self;
     }
 }
@@ -133,8 +142,7 @@ impl Layout {
     //
     //     ├ ┤ ┬ ┴
     //
-    pub fn build(columns: usize,
-                 prior_dt: &str,
+    pub fn build(prior_dt: &str,
                  left_floats: Vec<Div>,
                  right_floats: Vec<Div>,
                  options: &LayoutOptions)
@@ -163,10 +171,10 @@ impl Layout {
         //      > ├ CCCCCCCCC ┘
         //        └➤ ls foo/bar
         //
-        let inner_width = columns - (2 + prior_dt.chars().count() + 1);
-        let outer_width = columns - 1;
+        let inner_width = options.width - (2 + prior_dt.chars().count() + 1);
+        let outer_width = options.width - 1;
         if options.verbose {
-            println!("columns:     {}", columns);
+            println!("columns:     {}", options.width);
             println!("outer_width: {}", outer_width);
             println!("inner_width: {}", inner_width);
         }

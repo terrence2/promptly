@@ -85,12 +85,10 @@ fn run() -> Result<()> {
 
     let prior_runtime_str = format_run_time(prior_runtime);
 
-    let options = LayoutOptions::new().verbose(matches.occurrences_of("verbose") > 0);
-    let runs = match Layout::build(columns,
-                                   &prior_runtime_str,
-                                   left_floats,
-                                   right_floats,
-                                   &options) {
+    let options = LayoutOptions::new()
+        .verbose(matches.occurrences_of("verbose") > 0)
+        .width(columns);
+    let runs = match Layout::build(&prior_runtime_str, left_floats, right_floats, &options) {
         None => {
             let mut fail_run = Run::new(2);
             fail_run.add("➤", "prompt");
@@ -158,14 +156,14 @@ mod tests {
 
     #[test]
     fn single_line() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(80);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = "TTT";
         let result = vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
                           "└➤ "];
-        let layout = Layout::build(80, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(80, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -173,14 +171,14 @@ mod tests {
 
     #[test]
     fn single_line_min() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(43);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEE")];
         let dt = "TTT";
         let result = vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
                           "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
                           "└➤ "];
-        let layout = Layout::build(43, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(43, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -188,7 +186,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_1() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
@@ -196,7 +194,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -204,7 +202,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_1_stretch() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
@@ -212,7 +210,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -220,7 +218,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_1_shrink() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
@@ -228,7 +226,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─────────┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -236,7 +234,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCC"),
@@ -247,7 +245,7 @@ mod tests {
                           "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -255,7 +253,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2_shrink() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CC"),
@@ -266,7 +264,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -274,7 +272,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2_stretch() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCCC"),
@@ -285,7 +283,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -293,7 +291,7 @@ mod tests {
 
     #[test]
     fn drop_left_2_2_stretch_more() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(30);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCCC"),
@@ -304,7 +302,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
                           "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(30, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(30, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -312,7 +310,7 @@ mod tests {
 
     #[test]
     fn drop_left_3_2_stretch_more() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(29);
         let left = vec![Div::new("AAAA"),
                         Div::new("BBBB"),
                         Div::new("CCCCC"),
@@ -324,7 +322,7 @@ mod tests {
                           "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
                           "├ DDDDD ──────┘              ",
                           "└➤ "];
-        let layout = Layout::build(29, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(29, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -332,7 +330,7 @@ mod tests {
 
     #[test]
     fn drop_right_long_short() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDDDDDD"), Div::new("EEEE")];
         let dt = "TTT";
@@ -340,7 +338,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
                           "│                        └ EEEE ────┘     ",
                           "└➤ "];
-        let layout = Layout::build(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -348,7 +346,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
         let dt = "TTT";
@@ -356,7 +354,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
                           "│                            └ EEEEEEEE ┘ ",
                           "└➤ "];
-        let layout = Layout::build(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -364,7 +362,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long_stretch1() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEE")];
         let dt = "TTT";
@@ -372,7 +370,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
                           "│                            └ EEEEEEEEE ┘",
                           "└➤ "];
-        let layout = Layout::build(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -380,7 +378,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long_stretch2() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEE")];
         let dt = "TTT";
@@ -388,7 +386,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
                           "│                           └ EEEEEEEEEE ┘",
                           "└➤ "];
-        let layout = Layout::build(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
@@ -396,7 +394,7 @@ mod tests {
 
     #[test]
     fn drop_right_short_long_stretch4() {
-        let options = LayoutOptions::new();
+        let options = LayoutOptions::new().width(42);
         let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
         let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEEEE")];
         let dt = "TTT";
@@ -404,7 +402,7 @@ mod tests {
                           "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
                           "│                         └ EEEEEEEEEEEE ┘",
                           "└➤ "];
-        let layout = Layout::build(42, dt, left, right, &options).unwrap();
+        let layout = Layout::build(dt, left, right, &options).unwrap();
         let runs = super::render_with_layout(42, &layout, dt, &options);
         assert_eq!(format_runs(&runs), result);
         //super::show_runs(&runs);
