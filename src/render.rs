@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-use layout::{Div, Span, Layout, LayoutOptions};
+use layout::{Div, Span, Layout};
 
 use std;
 
@@ -175,11 +175,7 @@ impl Run {
     }
 }
 
-pub fn render_with_layout(columns: usize,
-                          layout: &Layout,
-                          prior_dt: &str,
-                          options: &LayoutOptions)
-                          -> Vec<Run> {
+pub fn render_with_layout(columns: usize, layout: &Layout, prior_dt: &str) -> Vec<Run> {
     // MEASUREMENTS:
     //
     //  v------------------- columns ---------------------v
@@ -207,24 +203,8 @@ pub fn render_with_layout(columns: usize,
     //  └➤ ls foo/bar
     //
     let mut runs: Vec<Run> = Vec::new();
-    let left_start = 1;
-    let left_end = left_start + layout.left_extent;
     let right_start = columns - (2 + prior_dt.chars().count() + 1) - layout.right_extent;
     let right_end = right_start + layout.right_extent;
-
-    if options.verbose {
-        println!("metrics:");
-        println!("  height:       {}", layout.height);
-        println!("  left_extent:  {}", layout.left_extent);
-        println!("  left_start:   {}", left_start);
-        println!("  left_end:     {}", left_end);
-        println!("  right_extent: {}", layout.right_extent);
-        println!("  right_start:  {}", right_start);
-        println!("  right_end:    {}", right_end);
-        println!("rows are:");
-        println!("  left: {:?}", layout.left_by_row);
-        println!("  right: {:?}", layout.right_by_row);
-    }
 
     // row 0
     let mut row0 = Run::new(columns);
