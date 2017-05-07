@@ -43,16 +43,16 @@ pub struct Run {
 impl Run {
     pub fn get_fallback_run() -> Vec<Self> {
         vec![Run {
-            width: 2,
-            cells: vec!['>', ' '],
-            formats: vec![None, None],
-            offset: 2,
-            last_format: Format::Clear,
-            use_color: false,
-            clear_format: "".to_owned(),
-            border_format: "".to_owned(),
-            prompt_format: "".to_owned(),
-        }]
+                 width: 2,
+                 cells: vec!['>', ' '],
+                 formats: vec![None, None],
+                 offset: 2,
+                 last_format: Format::Clear,
+                 use_color: false,
+                 clear_format: "".to_owned(),
+                 border_format: "".to_owned(),
+                 prompt_format: "".to_owned(),
+             }]
     }
 
     fn new(width: usize, layout: &Layout) -> Self {
@@ -102,8 +102,8 @@ impl Run {
 
     fn repeat_border(&mut self, c: char, cnt: usize) {
         self.add_border(&std::iter::repeat(c.to_string())
-            .take(cnt)
-            .collect::<String>());
+                             .take(cnt)
+                             .collect::<String>());
     }
 
     fn add_div(&mut self, div: &Div) {
@@ -210,7 +210,7 @@ impl Run {
                 for fmt in maybe_fmt.iter() {
                     out += &Span::get_reset_style();
                     match fmt {
-                        &Format::Clear => {},
+                        &Format::Clear => {}
                         &Format::Border => out += &self.border_format,
                         &Format::Prompt => out += &self.prompt_format,
                         &Format::Span(ref s) => out += &s,
@@ -348,7 +348,11 @@ impl Run {
 
         let mut run_last = Run::new(3, layout);
         run_last.add_border("└");
-        run_last.add_prompt("➤");
+        let arrow = match layout.use_safe_arrow {
+            false => "➤",
+            true => ">",
+        };
+        run_last.add_prompt(arrow);
         run_last.add(" ");
 
         runs.push(run_last);

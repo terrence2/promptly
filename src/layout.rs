@@ -21,13 +21,21 @@ use std;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Color {
+    #[allow(dead_code)]
     Black = 30,
+    #[allow(dead_code)]
     Red = 31,
+    #[allow(dead_code)]
     Green = 32,
+    #[allow(dead_code)]
     Yellow = 33,
+    #[allow(dead_code)]
     Blue = 34,
+    #[allow(dead_code)]
     Purple = 35,
+    #[allow(dead_code)]
     Cyan = 36,
+    #[allow(dead_code)]
     White = 37,
 }
 
@@ -36,6 +44,7 @@ impl Color {
         return self.clone() as u8;
     }
 
+    #[allow(dead_code)]
     fn encode_background(self) -> u8 {
         self.encode_foreground() + 10
     }
@@ -54,8 +63,8 @@ pub enum Style {
 }
 
 impl Style {
-    fn encode(self) -> u8 {
-        return self as u8;
+    fn encode(&self) -> u8 {
+        return self.clone() as u8;
     }
 }
 
@@ -86,70 +95,87 @@ impl Span {
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn background(mut self, clr: Color) -> Self {
         self.background = Some(clr);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn bold(mut self) -> Self {
         self.styles.insert(Style::Bold);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn dimmed(mut self) -> Self {
         self.styles.insert(Style::Dimmed);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn italic(mut self) -> Self {
         self.styles.insert(Style::Italic);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn underline(mut self) -> Self {
         self.styles.insert(Style::Underline);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn blink(mut self) -> Self {
         self.styles.insert(Style::Blink);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn reverse(mut self) -> Self {
         self.styles.insert(Style::Reverse);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn hidden(mut self) -> Self {
         self.styles.insert(Style::Hidden);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn strike_through(mut self) -> Self {
         self.styles.insert(Style::StrikeThrough);
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn get_reset_style() -> String {
-        "\x1B[0m".to_owned()
+        return Self::make_readline_safe("\x1B[0m");
     }
 
     pub fn format_style(&self) -> String {
         if self.foreground.is_none() && self.background.is_none() && self.styles.len() == 0 {
             return "".to_owned();
         }
-        let prefix = "\x1B[".to_owned();
-        let mut style = self.styles.iter()
-            .map(|s| format!("{}", (*s).clone() as u8))
+        let mut style = self.styles
+            .iter()
+            .map(|s| format!("{}", s.encode()))
             .collect::<Vec<String>>();
-        style.append(&mut self.background.iter()
-            .map(|c| format!("{}", c.encode_foreground()))
-            .collect::<Vec<String>>());
-        style.append(&mut self.foreground.iter()
-            .map(|c| format!("{}", c.encode_foreground()))
-            .collect::<Vec<String>>());
-        return prefix + &style.join(";") + "m";
+        style.append(&mut self.background
+                              .iter()
+                              .map(|c| format!("{}", c.encode_foreground()))
+                              .collect::<Vec<String>>());
+        style.append(&mut self.foreground
+                              .iter()
+                              .map(|c| format!("{}", c.encode_foreground()))
+                              .collect::<Vec<String>>());
+        return Self::make_readline_safe(&("\x1B[".to_owned() + &style.join(";") + "m"));
+    }
+
+    pub fn make_readline_safe(s: &str) -> String {
+        return s.to_owned();
+        //return "\\[".to_owned() + s + "\\]";
     }
 }
 
@@ -159,8 +185,8 @@ pub struct Div {
 }
 
 impl Div {
-    pub fn new(a: &str) -> Self {
-        Div { children: vec![Span::new(a)] }
+    pub fn new(s: Span) -> Self {
+        Div { children: vec![s] }
     }
 
     pub fn new_empty() -> Self {
@@ -169,10 +195,6 @@ impl Div {
 
     pub fn add_span(&mut self, span: Span) {
         self.children.push(span);
-    }
-
-    pub fn new3(a: &str, b: &str, c: &str) -> Self {
-        Div { children: vec![Span::new(a), Span::new(b), Span::new(c)] }
     }
 
     pub fn width(&self) -> usize {
@@ -188,6 +210,7 @@ pub struct LayoutOptions {
     pub width: usize,
     pub verbose: bool,
     pub use_color: bool,
+    pub use_safe_arrow: bool,
     pub border_template: Span,
     pub prompt_template: Span,
 }
@@ -198,6 +221,7 @@ impl LayoutOptions {
             width: 80,
             verbose: false,
             use_color: true,
+            use_safe_arrow: false,
             border_template: Span::new(""),
             prompt_template: Span::new(""),
         }
@@ -208,13 +232,21 @@ impl LayoutOptions {
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn verbose(mut self, value: bool) -> LayoutOptions {
         self.verbose = value;
         return self;
     }
 
+    #[allow(dead_code)]
     pub fn use_color(mut self, value: bool) -> LayoutOptions {
         self.use_color = value;
+        return self;
+    }
+
+    #[allow(dead_code)]
+    pub fn use_safe_arrow(mut self, value: bool) -> LayoutOptions {
+        self.use_safe_arrow = value;
         return self;
     }
 
@@ -238,11 +270,35 @@ pub struct Layout {
     pub right_by_row: Vec<Vec<Div>>,
     pub prior_runtime: Div,
     pub use_color: bool,
+    pub use_safe_arrow: bool,
     pub border_format: String,
     pub prompt_format: String,
 }
 
 impl Layout {
+    fn new(left_extent: usize,
+           right_extent: usize,
+           height: usize,
+           left_floats: Vec<Div>,
+           right_floats: Vec<Div>,
+           prior_runtime: Div,
+           options: &LayoutOptions)
+           -> Self {
+        Layout {
+            left_extent: left_extent,
+            right_extent: right_extent,
+            width: options.width,
+            height: height,
+            left_by_row: Self::split_for_width(left_extent, left_floats),
+            right_by_row: Self::split_for_width(right_extent, right_floats),
+            prior_runtime: prior_runtime,
+            use_color: options.use_color,
+            use_safe_arrow: options.use_safe_arrow,
+            border_format: options.border_template.format_style(),
+            prompt_format: options.prompt_template.format_style(),
+        }
+    }
+
     // Basic layout looks like:
     // ┬───────────┬──────────┬───────────┬───────────────┬─────────────────────┐ TTT
     // ├ PPPPPPPPP ┴ GGGGGGGG ┘           └ NNNNNNNN@HHHH └ YYYY-MM-DD HH:MM:SS ┴─────
@@ -422,28 +478,6 @@ impl Layout {
                                 right_floats,
                                 prior_dt,
                                 options));
-    }
-
-    fn new(left_extent: usize,
-           right_extent: usize,
-           height: usize,
-           left_floats: Vec<Div>,
-           right_floats: Vec<Div>,
-           prior_runtime: Div,
-           options: &LayoutOptions)
-           -> Self {
-        Layout {
-            left_extent: left_extent,
-            right_extent: right_extent,
-            width: options.width,
-            height: height,
-            left_by_row: Self::split_for_width(left_extent, left_floats),
-            right_by_row: Self::split_for_width(right_extent, right_floats),
-            prior_runtime: prior_runtime,
-            use_color: options.use_color,
-            border_format: options.border_template.format_style(),
-            prompt_format: options.prompt_template.format_style(),
-        }
     }
 
     fn split_for_width(width: usize, mut floats: Vec<Div>) -> Vec<Vec<Div>> {

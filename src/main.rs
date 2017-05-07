@@ -28,7 +28,7 @@ mod errors {
 mod layout;
 mod render;
 
-use layout::{Color, Style, Div, Span, Layout, LayoutOptions};
+use layout::{Color, Div, Span, Layout, LayoutOptions};
 use render::Run;
 
 use chrono::Local;
@@ -40,17 +40,19 @@ const DATE_FORMAT: &str = "%d %b %H:%M:%S";
 
 quick_main!(run);
 fn run() -> Result<()> {
-    let matches = clap_app!(promptly =>
+    let parser = clap_app!(promptly =>
         (version: "0.1")
         (author: "Terrence Cole <terrence.d.cole@gmail.com>")
         (about: "Shows a shell prompt, quickly.")
         (@arg status: -s --status <CODE> "Prior command exit code.")
         (@arg time: -t --time <SECONDS> "Prior command run time.")
         (@arg width: -w --width <COLUMNS> "The terminal width to use.")
-        (@arg verbose: -v --verbose "Sets the level of debugging information")
-    )
-            .get_matches();
-    let status = matches.value_of("status").unwrap() == "0";
+        (@arg safe_arrow: --("safe-arrow") "Use a non-utf8 arrow character.")
+        (@arg alternate_home: --("alternate-home") <PATH> "Specify a non-$HOME, home folding.")
+        (@arg verbose: -v --verbose "Sets the level of debugging information.")
+    );
+    let matches = parser.get_matches();
+
     let columns = matches
         .value_of("width")
         .unwrap()
@@ -62,34 +64,30 @@ fn run() -> Result<()> {
         .parse::<i32>()
         .chain_err(|| "expected integer time")?;
 
-    let border_template = Span::new("").foreground(Color::Blue).bold();
-    let prompt_template = Span::new("");
+    let border_template = match matches.value_of("status").unwrap() == "0" {
+        true => Span::new("").foreground(Color::Blue).bold(),
+        false => Span::new("").foreground(Color::Red).bold(),
+    };
+    let prompt_template = Span::new("").foreground(Color::Green).dimmed();
 
     let mut left_floats = Vec::<Div>::new();
     let mut right_floats = Vec::<Div>::new();
 
-    let path = current_dir().chain_err(|| "failed to getcwd")?;
-    let raw_path_str = path.to_str().unwrap_or("<error>");
-    let home_str = var("HOME")
-        .chain_err(|| "failed to get HOME")?
-        .to_owned();
-    let path_str = if raw_path_str.starts_with(&home_str) {
-        raw_path_str.replace(&home_str, "~")
-    } else {
-        raw_path_str.to_owned()
-    };
-    left_floats.push(Div::new(&path_str));
+    let path_div = format_path(matches.value_of("alternate_home"))
+        .chain_err(|| "failed to format the path")?;
+    left_floats.push(path_div);
 
     let current_time = Local::now();
-    right_floats.push(Div::new(&current_time.format(DATE_FORMAT).to_string()));
+    right_floats.push(Div::new(Span::new(&current_time.format(DATE_FORMAT).to_string())));
 
     let git_branch = find_git_branch();
-    git_branch.map(|branch| left_floats.push(Div::new3("@ git {", &branch, "}")));
+    git_branch.map(|branch| left_floats.push(format_git_branch(&branch)));
 
     let prior_runtime = format_run_time(prior_runtime_seconds);
 
     let options = LayoutOptions::new()
         .verbose(matches.occurrences_of("verbose") > 0)
+        .use_safe_arrow(matches.occurrences_of("safe_arrow") > 0)
         .border_template(border_template)
         .prompt_template(prompt_template)
         .width(columns);
@@ -102,10 +100,24 @@ fn run() -> Result<()> {
     return Ok(());
 }
 
+fn format_path(alt_home: Option<&str>) -> Result<Div> {
+    let path = current_dir().chain_err(|| "failed to getcwd")?;
+    let raw_path_str = path.to_str().unwrap_or("<error>");
+    let home_str = match alt_home {
+        None => var("HOME").chain_err(|| "failed to get HOME")?,
+        Some(alt) => alt.to_owned(),
+    };
+    let path_str = match raw_path_str.starts_with(&home_str) {
+        true => raw_path_str.replace(&home_str, "~"),
+        false => raw_path_str.to_owned(),
+    };
+    return Ok(Div::new(Span::new(&path_str).bold()));
+}
+
 fn format_run_time(t: i32) -> Div {
     let mut out = Div::new_empty();
     if t == 0 {
-        out.add_span(Span::new("ε").foreground(Color::Purple));
+        out.add_span(Span::new("ε").foreground(Color::Purple).bold());
         return out;
     }
 
@@ -113,18 +125,24 @@ fn format_run_time(t: i32) -> Div {
     if s > 3600 {
         let h = s / 3600;
         s = s - 3600 * h;
-        out.add_span(Span::new(&format!("{}", h)).foreground(Color::Purple));
-        out.add_span(Span::new("h").foreground(Color::White).dimmed());
+        out.add_span(Span::new(&format!("{}", h))
+                         .foreground(Color::Purple)
+                         .bold());
+        out.add_span(Span::new("h").foreground(Color::Purple).dimmed());
     }
     if s > 60 {
         let m = s / 60;
         s = s - 60 * m;
-        out.add_span(Span::new(&format!("{}", m)).foreground(Color::Purple));
-        out.add_span(Span::new("m").foreground(Color::White).dimmed());
+        out.add_span(Span::new(&format!("{}", m))
+                         .foreground(Color::Purple)
+                         .bold());
+        out.add_span(Span::new("m").foreground(Color::Purple).dimmed());
     }
     if s > 0 {
-        out.add_span(Span::new(&format!("{}", s)).foreground(Color::Purple));
-        out.add_span(Span::new("s").foreground(Color::White).dimmed());
+        out.add_span(Span::new(&format!("{}", s))
+                         .foreground(Color::Purple)
+                         .bold());
+        out.add_span(Span::new("s").foreground(Color::Purple).dimmed());
     }
     return out;
 }
@@ -145,269 +163,217 @@ fn find_git_branch() -> Option<String> {
                     .to_owned());
 }
 
+fn format_git_branch(branch: &str) -> Div {
+    let mut div = Div::new_empty();
+    div.add_span(Span::new("@").foreground(Color::Yellow));
+    div.add_span(Span::new("git").foreground(Color::Cyan));
+    div.add_span(Span::new("{").bold());
+    div.add_span(Span::new(branch).foreground(Color::Yellow).bold());
+    div.add_span(Span::new("}").bold());
+    return div;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use super::Layout;
 
     fn format_runs(runs: &Vec<Run>) -> Vec<String> {
-        runs
+        runs.iter().map(|r| r.format()).collect::<Vec<String>>()
+    }
+
+    fn do_test(width: usize, dt_str: &str, left: Vec<&str>, right: Vec<&str>, result: Vec<&str>) {
+        let options = LayoutOptions::new().width(width).use_color(false);
+        let dt = Div::new(Span::new(dt_str));
+        let l = left.iter()
+            .map(|s| Div::new(Span::new(s)))
+            .collect::<Vec<Div>>();
+        let r = right
             .iter()
-            .map(|r| r.format())
-            .collect::<Vec<String>>()
+            .map(|s| Div::new(Span::new(s)))
+            .collect::<Vec<Div>>();
+        let layout = Layout::build(dt, l, r, &options).unwrap();
+        let runs = Run::render_layout(&layout);
+        assert_eq!(format_runs(&runs), result);
+        //super::show_runs(&runs);
     }
 
     #[test]
     fn single_line() {
-        let options = LayoutOptions::new().width(80).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(80,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDD", "EEEE"],
+                vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
+                     "└➤ "]);
     }
 
     #[test]
     fn single_line_min() {
-        let options = LayoutOptions::new().width(43).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(43,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDD", "EEEE"],
+                vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_2_1() {
-        let options = LayoutOptions::new().width(30).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                          "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(30,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                     "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_2_1_stretch() {
-        let options = LayoutOptions::new().width(30).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                          "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(30,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCCC"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                     "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_2_1_shrink() {
-        let options = LayoutOptions::new().width(30).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                          "├ CC ─────────┘  └ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(30,
+                "TTT",
+                vec!["AAAA", "BBBB", "CC"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                     "├ CC ─────────┘  └ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_2_2() {
-        let options = LayoutOptions::new().width(30).use_color(false);
-        let left = vec![Div::new("AAAA"),
-                        Div::new("BBBB"),
-                        Div::new("CCCC"),
-                        Div::new("DDDD")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                          "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
-                          "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(30,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC", "DDDD"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                     "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
+                     "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_2_2_shrink() {
-        let options = LayoutOptions::new().width(30).use_color(false);
-        let left = vec![Div::new("AAAA"),
-                        Div::new("BBBB"),
-                        Div::new("CC"),
-                        Div::new("DDDD")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                          "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(30,
+                "TTT",
+                vec!["AAAA", "BBBB", "CC", "DDDD"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                     "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_2_2_stretch() {
-        let options = LayoutOptions::new().width(30).use_color(false);
-        let left = vec![Div::new("AAAA"),
-                        Div::new("BBBB"),
-                        Div::new("CCCCC"),
-                        Div::new("DDD")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                          "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(30,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCCC", "DDD"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬──┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                     "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_2_2_stretch_more() {
-        let options = LayoutOptions::new().width(30).use_color(false);
-        let left = vec![Div::new("AAAA"),
-                        Div::new("BBBB"),
-                        Div::new("CCCCC"),
-                        Div::new("DDDDD")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬────────┬┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
-                          "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(30,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬────────┬┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
+                     "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_left_3_2_stretch_more() {
-        let options = LayoutOptions::new().width(29).use_color(false);
-        let left = vec![Div::new("AAAA"),
-                        Div::new("BBBB"),
-                        Div::new("CCCCC"),
-                        Div::new("DDDDD")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬─┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
-                          "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
-                          "├ DDDDD ──────┘              ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(29,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬─┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
+                     "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
+                     "├ DDDDD ──────┘              ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_right_long_short() {
-        let options = LayoutOptions::new().width(42).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDDDDDD"), Div::new("EEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──────┬───┬──────────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
-                          "│                        └ EEEE ────┘     ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(42,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDDDDDD", "EEEE"],
+                vec!["┬──────┬──────┬──────┬───┬──────────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
+                     "│                        └ EEEE ────┘     ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long() {
-        let options = LayoutOptions::new().width(42).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
-                          "│                            └ EEEEEEEE ┘ ",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(42,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDD", "EEEEEEEE"],
+                vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
+                     "│                            └ EEEEEEEE ┘ ",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long_stretch1() {
-        let options = LayoutOptions::new().width(42).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
-                          "│                            └ EEEEEEEEE ┘",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(42,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDD", "EEEEEEEEE"],
+                vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
+                     "│                            └ EEEEEEEEE ┘",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long_stretch2() {
-        let options = LayoutOptions::new().width(42).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──────┬──────┬───────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
-                          "│                           └ EEEEEEEEEE ┘",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(42,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDD", "EEEEEEEEEE"],
+                vec!["┬──────┬──────┬──────┬──────┬───────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
+                     "│                           └ EEEEEEEEEE ┘",
+                     "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long_stretch4() {
-        let options = LayoutOptions::new().width(42).use_color(false);
-        let left = vec![Div::new("AAAA"), Div::new("BBBB"), Div::new("CCCC")];
-        let right = vec![Div::new("DDDD"), Div::new("EEEEEEEEEEEE")];
-        let dt = Div::new("TTT");
-        let result = vec!["┬──────┬──────┬──────┬────┬─────────┐ TTT ",
-                          "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
-                          "│                         └ EEEEEEEEEEEE ┘",
-                          "└➤ "];
-        let layout = Layout::build(dt, left, right, &options).unwrap();
-        let runs = Run::render_layout(&layout);
-        assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        do_test(42,
+                "TTT",
+                vec!["AAAA", "BBBB", "CCCC"],
+                vec!["DDDD", "EEEEEEEEEEEE"],
+                vec!["┬──────┬──────┬──────┬────┬─────────┐ TTT ",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
+                     "│                         └ EEEEEEEEEEEE ┘",
+                     "└➤ "]);
     }
 }
