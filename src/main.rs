@@ -21,6 +21,7 @@ extern crate chrono;
 #[macro_use]
 extern crate clap;
 extern crate git2;
+extern crate time;
 
 mod errors {
     error_chain!{}
@@ -35,6 +36,7 @@ use chrono::Local;
 use errors::{Result, ResultExt};
 use git2::Repository;
 use std::env::{current_dir, var};
+use time::PreciseTime;
 
 const DATE_FORMAT: &str = "%d %b %H:%M:%S";
 
@@ -49,22 +51,24 @@ fn run() -> Result<()> {
         (@arg width: -w --width <COLUMNS> "The terminal width to use.")
         (@arg safe_arrow: --("safe-arrow") "Use a non-utf8 arrow character.")
         (@arg alternate_home: --("alternate-home") <PATH> "Specify a non-$HOME, home folding.")
+        (@arg show_timings: --("show-timings") "Print out timings after the prompt.")
         (@arg verbose: -v --verbose "Sets the level of debugging information.")
     );
-    let matches = parser.get_matches();
+    let args = parser.get_matches();
 
-    let columns = matches
+    let show_timings = args.occurrences_of("show_timings") > 0;
+    let columns = args
         .value_of("width")
         .unwrap()
         .parse::<usize>()
         .chain_err(|| "expected positive integer width")?;
-    let prior_runtime_seconds = matches
+    let prior_runtime_seconds = args
         .value_of("time")
         .unwrap()
         .parse::<i32>()
         .chain_err(|| "expected integer time")?;
 
-    let border_template = match matches.value_of("status").unwrap() == "0" {
+    let border_template = match args.value_of("status").unwrap() == "0" {
         true => Span::new("").foreground(Color::Blue).bold(),
         false => Span::new("").foreground(Color::Red).bold(),
     };
@@ -73,30 +77,44 @@ fn run() -> Result<()> {
     let mut left_floats = Vec::<Div>::new();
     let mut right_floats = Vec::<Div>::new();
 
-    let path_div = format_path(matches.value_of("alternate_home"))
+    let t1 = if show_timings { Some(PreciseTime::now()) } else { None };
+    let path_div = format_path(args.value_of("alternate_home"))
         .chain_err(|| "failed to format the path")?;
     left_floats.push(path_div);
 
+    let t2 = if show_timings { Some(PreciseTime::now()) } else { None };
     let current_time = Local::now();
     right_floats.push(Div::new(Span::new(&current_time.format(DATE_FORMAT).to_string())));
 
+    let t3 = if show_timings { Some(PreciseTime::now()) } else { None };
     let git_branch = find_git_branch();
     git_branch.map(|branch| left_floats.push(format_git_branch(&branch)));
 
+    let t4 = if show_timings { Some(PreciseTime::now()) } else { None };
     let prior_runtime = format_run_time(prior_runtime_seconds);
 
+    let t5 = if show_timings { Some(PreciseTime::now()) } else { None };
     let options = LayoutOptions::new()
-        .verbose(matches.occurrences_of("verbose") > 0)
-        .use_safe_arrow(matches.occurrences_of("safe_arrow") > 0)
+        .verbose(args.occurrences_of("verbose") > 0)
+        .use_safe_arrow(args.occurrences_of("safe_arrow") > 0)
         .border_template(border_template)
         .prompt_template(prompt_template)
         .width(columns);
     let runs = match Layout::build(prior_runtime, left_floats, right_floats, &options) {
-        Some(layout) => Run::render_layout(&layout),
+        Some(layout) => { Run::render_layout(&layout) },
         None => Run::get_fallback_run(),
     };
+    let t6 = if show_timings { Some(PreciseTime::now()) } else { None };
     Run::show_all(&runs);
-
+    let t7 = if show_timings { Some(PreciseTime::now()) } else { None };
+    if show_timings {
+        println!("Fmt Path:      {}", t1.unwrap().to(t2.unwrap()));
+        println!("Fmt Date:      {}", t2.unwrap().to(t3.unwrap()));
+        println!("Fmt Git:       {}", t3.unwrap().to(t4.unwrap()));
+        println!("Fmt Runtime:   {}", t4.unwrap().to(t5.unwrap()));
+        println!("Layout&Render: {}", t5.unwrap().to(t6.unwrap()));
+        println!("Writing:       {}", t6.unwrap().to(t7.unwrap()));
+    }
     return Ok(());
 }
 
