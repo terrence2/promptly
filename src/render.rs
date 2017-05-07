@@ -68,7 +68,7 @@ impl Run {
             last_format: Format::Clear,
             use_color: layout.use_color,
             use_safe_corners: layout.use_safe_corners,
-            clear_format: Span::get_reset_style(),
+            clear_format: Span::get_reset_style(layout.escape_for_readline),
             border_format: layout.border_format.clone(),
             prompt_format: layout.prompt_format.clone(),
         }
@@ -109,14 +109,14 @@ impl Run {
                              .collect::<String>());
     }
 
-    fn add_div(&mut self, div: &Div) {
+    fn add_div(&mut self, div: &Div, escape_for_readline: bool) {
         for span in div.iter_spans() {
-            self.add_span(span);
+            self.add_span(span, escape_for_readline);
         }
     }
 
-    fn add_span(&mut self, span: &Span) {
-        self.add_formatted(&span.content, Format::Span(span.format_style()));
+    fn add_span(&mut self, span: &Span, escape_for_readline: bool) {
+        self.add_formatted(&span.content, Format::Span(span.format_style(escape_for_readline)));
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
@@ -206,12 +206,12 @@ impl Run {
         self.cells[self.offset - 1] = next;
     }
 
-    pub fn format(&self) -> String {
+    pub fn format(&self, escape_for_readline: bool) -> String {
         let mut out = "".to_owned();
         for (ch, maybe_fmt) in self.cells.iter().zip(self.formats.iter()) {
             if self.use_color {
                 for fmt in maybe_fmt.iter() {
-                    out += &Span::get_reset_style();
+                    out += &Span::get_reset_style(escape_for_readline);
                     match fmt {
                         &Format::Clear => {}
                         &Format::Border => out += &self.border_format,
@@ -235,13 +235,13 @@ impl Run {
         return out;
     }
 
-    pub fn show(&self) {
-        println!("{}", self.format());
+    pub fn show(&self, escape_for_readline: bool) {
+        println!("{}", self.format(escape_for_readline));
     }
 
-    pub fn show_all(runs: &Vec<Run>) {
+    pub fn show_all(runs: &Vec<Run>, escape_for_readline: bool) {
         for run in runs {
-            run.show();
+            run.show(escape_for_readline);
         }
     }
 
@@ -282,7 +282,7 @@ impl Run {
         row0.repeat_border('─', right_end);
         row0.add_border("┐");
         row0.add(" ");
-        row0.add_div(&layout.prior_runtime);
+        row0.add_div(&layout.prior_runtime, layout.escape_for_readline);
         row0.add(" ");
         runs.push(row0);
 
@@ -297,7 +297,7 @@ impl Run {
                 for f in layout.left_by_row[i].iter() {
                     row.add_east_border();
                     row.add(" ");
-                    row.add_div(f);
+                    row.add_div(f, layout.escape_for_readline);
                     row.add(" ");
 
                     if f == layout.left_by_row[i].last().unwrap() {
@@ -324,7 +324,7 @@ impl Run {
                 for f in layout.right_by_row[i].iter() {
                     row.add_east_border();
                     row.add(" ");
-                    row.add_div(f);
+                    row.add_div(f, layout.escape_for_readline);
                     row.add(" ");
 
                     if i == 0 && f == layout.right_by_row[i].last().unwrap() {

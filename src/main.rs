@@ -53,6 +53,7 @@ fn run() -> Result<()> {
         (@arg width: -w --width <COLUMNS> "The terminal width to use.")
         (@arg safe_arrow: --("safe-arrow") "Use a non-utf8 arrow character.")
         (@arg safe_corners: --("safe-corners") "Use normal box corners instead of round corners.")
+        (@arg no_readline: --("no-readline") "Skip the readline escaping we do by default.")
         (@arg alternate_home: --("alternate-home") <PATH> "Specify a non-$HOME, home folding.")
         (@arg show_timings: --("show-timings") "Print out timings after the prompt.")
         (@arg verbose: -v --verbose "Sets the level of debugging information.")
@@ -101,6 +102,7 @@ fn run() -> Result<()> {
         .verbose(args.occurrences_of("verbose") > 0)
         .use_safe_arrow(args.occurrences_of("safe_arrow") > 0)
         .use_safe_corners(args.occurrences_of("safe_corners") > 0)
+        .escape_for_readline(args.occurrences_of("no_readline") == 0)
         .border_template(border_template)
         .prompt_template(prompt_template)
         .width(columns);
@@ -109,7 +111,7 @@ fn run() -> Result<()> {
         None => Run::get_fallback_run(),
     };
     let t7 = if show_timings { Some(PreciseTime::now()) } else { None };
-    Run::show_all(&runs);
+    Run::show_all(&runs, options.escape_for_readline);
     let t8 = if show_timings { Some(PreciseTime::now()) } else { None };
     if show_timings {
         println!("Fmt Path:      {}", t1.unwrap().to(t2.unwrap()));

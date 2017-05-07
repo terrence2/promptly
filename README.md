@@ -17,7 +17,7 @@ the bash equivalent takes to execute.
 Go to [rustup.rs](http://www.rustup.rs) and install Rust version 1.17 or greater by following
 the easy, on-screen directions.
 2) Then, in a terminal, do `cargo install promptly`. If there are red lines, please file an issue!
-3) Run `promptly --status 0 --time 0 --width 80` to make sure it's working. If things don't
+3) Run `promptly --status 0 --time 0 --width 80 --no-readline` to make sure it's working. If things don't
 appear to be rendering properly in your terminal, adjust the command line and fonts until things
 look as awesome as desired. You can run `promptly --help` to see the available rendering options.
 4) Finally, install `promptly` as your prompt command. These instructions are for `bash`. For other shells,

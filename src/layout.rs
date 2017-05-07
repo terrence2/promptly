@@ -150,11 +150,11 @@ impl Span {
     }
 
     #[allow(dead_code)]
-    pub fn get_reset_style() -> String {
-        return Self::make_readline_safe("\x1B[0m");
+    pub fn get_reset_style(escape_for_readline: bool) -> String {
+        return Self::make_readline_safe("\x1B[0m", escape_for_readline);
     }
 
-    pub fn format_style(&self) -> String {
+    pub fn format_style(&self, escape_for_readline: bool) -> String {
         if self.foreground.is_none() && self.background.is_none() && self.styles.len() == 0 {
             return "".to_owned();
         }
@@ -170,12 +170,14 @@ impl Span {
                               .iter()
                               .map(|c| format!("{}", c.encode_foreground()))
                               .collect::<Vec<String>>());
-        return Self::make_readline_safe(&("\x1B[".to_owned() + &style.join(";") + "m"));
+        return Self::make_readline_safe(&("\x1B[".to_owned() + &style.join(";") + "m"), escape_for_readline);
     }
 
-    pub fn make_readline_safe(s: &str) -> String {
-        return s.to_owned();
-        //return "\\[".to_owned() + s + "\\]";
+    pub fn make_readline_safe(s: &str, escape_for_readline: bool) -> String {
+        match escape_for_readline {
+            true => "\\[".to_owned() + s + "\\]",
+            false => s.to_owned(),
+        }
     }
 }
 
@@ -212,6 +214,7 @@ pub struct LayoutOptions {
     pub use_color: bool,
     pub use_safe_arrow: bool,
     pub use_safe_corners: bool,
+    pub escape_for_readline: bool,
     pub border_template: Span,
     pub prompt_template: Span,
 }
@@ -224,6 +227,7 @@ impl LayoutOptions {
             use_color: true,
             use_safe_arrow: false,
             use_safe_corners: false,
+            escape_for_readline: true,
             border_template: Span::new(""),
             prompt_template: Span::new(""),
         }
@@ -258,6 +262,12 @@ impl LayoutOptions {
         return self;
     }
 
+    #[allow(dead_code)]
+    pub fn escape_for_readline(mut self, value: bool) -> LayoutOptions {
+        self.escape_for_readline = value;
+        return self;
+    }
+
     pub fn border_template(mut self, value: Span) -> LayoutOptions {
         self.border_template = value;
         return self;
@@ -280,6 +290,7 @@ pub struct Layout {
     pub use_color: bool,
     pub use_safe_arrow: bool,
     pub use_safe_corners: bool,
+    pub escape_for_readline: bool,
     pub border_format: String,
     pub prompt_format: String,
 }
@@ -304,8 +315,9 @@ impl Layout {
             use_color: options.use_color,
             use_safe_arrow: options.use_safe_arrow,
             use_safe_corners: options.use_safe_corners,
-            border_format: options.border_template.format_style(),
-            prompt_format: options.prompt_template.format_style(),
+            escape_for_readline: options.escape_for_readline,
+            border_format: options.border_template.format_style(options.escape_for_readline),
+            prompt_format: options.prompt_template.format_style(options.escape_for_readline),
         }
     }
 
