@@ -44,5 +44,4 @@ function doprompt {
 
 trap 'timer_start' DEBUG
 export PROMPT_COMMAND=doprompt
-
 ```

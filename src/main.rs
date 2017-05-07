@@ -54,7 +54,7 @@ fn run() -> Result<()> {
         (@arg safe_arrow: --("safe-arrow") "Use a non-utf8 arrow character.")
         (@arg safe_corners: --("safe-corners") "Use normal box corners instead of round corners.")
         (@arg no_readline: --("no-readline") "Skip the readline escaping we do by default.")
-        (@arg alternate_home: --("alternate-home") <PATH> "Specify a non-$HOME, home folding.")
+        (@arg alternate_home: --("alternate-home") <PATH> !required "Specify a non-$HOME, home folding.")
         (@arg show_timings: --("show-timings") "Print out timings after the prompt.")
         (@arg verbose: -v --verbose "Sets the level of debugging information.")
     );
