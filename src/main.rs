@@ -52,6 +52,7 @@ fn run() -> Result<()> {
         (@arg time: -t --time <SECONDS> "Prior command run time.")
         (@arg width: -w --width <COLUMNS> "The terminal width to use.")
         (@arg safe_arrow: --("safe-arrow") "Use a non-utf8 arrow character.")
+        (@arg safe_corners: --("safe-corners") "Use normal box corners instead of round corners.")
         (@arg alternate_home: --("alternate-home") <PATH> "Specify a non-$HOME, home folding.")
         (@arg show_timings: --("show-timings") "Print out timings after the prompt.")
         (@arg verbose: -v --verbose "Sets the level of debugging information.")
@@ -99,6 +100,7 @@ fn run() -> Result<()> {
     let options = LayoutOptions::new()
         .verbose(args.occurrences_of("verbose") > 0)
         .use_safe_arrow(args.occurrences_of("safe_arrow") > 0)
+        .use_safe_corners(args.occurrences_of("safe_corners") > 0)
         .border_template(border_template)
         .prompt_template(prompt_template)
         .width(columns);
@@ -237,7 +239,7 @@ mod tests {
     }
 
     fn do_test(width: usize, dt_str: &str, left: Vec<&str>, right: Vec<&str>, result: Vec<&str>) {
-        let options = LayoutOptions::new().width(width).use_color(false);
+        let options = LayoutOptions::new().width(width).use_color(false).use_safe_corners(true);
         let dt = Div::new(Span::new(dt_str));
         let l = left.iter()
             .map(|s| Div::new(Span::new(s)))

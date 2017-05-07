@@ -35,6 +35,7 @@ pub struct Run {
     offset: usize,
     last_format: Format,
     use_color: bool,
+    use_safe_corners: bool,
     clear_format: String,
     border_format: String,
     prompt_format: String,
@@ -49,6 +50,7 @@ impl Run {
                  offset: 2,
                  last_format: Format::Clear,
                  use_color: false,
+                 use_safe_corners: false,
                  clear_format: "".to_owned(),
                  border_format: "".to_owned(),
                  prompt_format: "".to_owned(),
@@ -65,6 +67,7 @@ impl Run {
             offset: 0,
             last_format: Format::Clear,
             use_color: layout.use_color,
+            use_safe_corners: layout.use_safe_corners,
             clear_format: Span::get_reset_style(),
             border_format: layout.border_format.clone(),
             prompt_format: layout.prompt_format.clone(),
@@ -217,7 +220,17 @@ impl Run {
                     }
                 }
             }
-            out.push(*ch);
+            if !self.use_safe_corners {
+                out.push(match *ch {
+                    '┌' => '╭',
+                    '└' => '╰',
+                    '┐' => '╮',
+                    '┘' => '╯',
+                    c => c,
+                });
+            } else {
+                out.push(*ch);
+            }
         }
         return out;
     }

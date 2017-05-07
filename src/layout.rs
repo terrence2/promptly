@@ -211,6 +211,7 @@ pub struct LayoutOptions {
     pub verbose: bool,
     pub use_color: bool,
     pub use_safe_arrow: bool,
+    pub use_safe_corners: bool,
     pub border_template: Span,
     pub prompt_template: Span,
 }
@@ -222,6 +223,7 @@ impl LayoutOptions {
             verbose: false,
             use_color: true,
             use_safe_arrow: false,
+            use_safe_corners: false,
             border_template: Span::new(""),
             prompt_template: Span::new(""),
         }
@@ -250,6 +252,12 @@ impl LayoutOptions {
         return self;
     }
 
+    #[allow(dead_code)]
+    pub fn use_safe_corners(mut self, value: bool) -> LayoutOptions {
+        self.use_safe_corners = value;
+        return self;
+    }
+
     pub fn border_template(mut self, value: Span) -> LayoutOptions {
         self.border_template = value;
         return self;
@@ -271,6 +279,7 @@ pub struct Layout {
     pub prior_runtime: Div,
     pub use_color: bool,
     pub use_safe_arrow: bool,
+    pub use_safe_corners: bool,
     pub border_format: String,
     pub prompt_format: String,
 }
@@ -294,6 +303,7 @@ impl Layout {
             prior_runtime: prior_runtime,
             use_color: options.use_color,
             use_safe_arrow: options.use_safe_arrow,
+            use_safe_corners: options.use_safe_corners,
             border_format: options.border_template.format_style(),
             prompt_format: options.prompt_template.format_style(),
         }
