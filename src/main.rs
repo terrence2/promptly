@@ -55,19 +55,17 @@ fn run() -> Result<()> {
         (@arg safe_corners: --("safe-corners") "Use normal box corners instead of round corners.")
         (@arg no_readline: --("no-readline") "Skip the readline escaping we do by default.")
         (@arg alternate_home: --("alternate-home") <PATH> !required "Specify a non-$HOME, home folding.")
-        (@arg show_timings: --("show-timings") "Print out timings after the prompt.")
+        (@arg timed: --("show-timings") "Print out timings after the prompt.")
         (@arg verbose: -v --verbose "Sets the level of debugging information.")
     );
     let args = parser.get_matches();
 
-    let show_timings = args.occurrences_of("show_timings") > 0;
-    let columns = args
-        .value_of("width")
+    let timed = args.occurrences_of("timed") > 0;
+    let columns = args.value_of("width")
         .unwrap()
         .parse::<usize>()
         .chain_err(|| "expected positive integer width")?;
-    let prior_runtime_seconds = args
-        .value_of("time")
+    let prior_runtime_seconds = args.value_of("time")
         .unwrap()
         .parse::<i32>()
         .chain_err(|| "expected integer time")?;
@@ -82,22 +80,22 @@ fn run() -> Result<()> {
     let mut left_floats = Vec::<Div>::new();
     let mut right_floats = Vec::<Div>::new();
 
-    let t1 = if show_timings { Some(PreciseTime::now()) } else { None };
+    let t1 = get_time(timed);
     let path_div = format_path(args.value_of("alternate_home"))
         .chain_err(|| "failed to format the path")?;
     left_floats.push(path_div);
 
-    let t2 = if show_timings { Some(PreciseTime::now()) } else { None };
+    let t2 = get_time(timed);
     let git_branch = find_git_branch();
     git_branch.map(|branch| left_floats.push(format_git_branch(&branch)));
 
-    let t3 = if show_timings { Some(PreciseTime::now()) } else { None };
+    let t3 = get_time(timed);
     right_floats.push(format_date_time());
 
-    let t5 = if show_timings { Some(PreciseTime::now()) } else { None };
+    let t5 = get_time(timed);
     right_floats.push(format_user_host());
 
-    let t6 = if show_timings { Some(PreciseTime::now()) } else { None };
+    let t6 = get_time(timed);
     let options = LayoutOptions::new()
         .verbose(args.occurrences_of("verbose") > 0)
         .use_safe_arrow(args.occurrences_of("safe_arrow") > 0)
@@ -107,13 +105,13 @@ fn run() -> Result<()> {
         .prompt_template(prompt_template)
         .width(columns);
     let runs = match Layout::build(prior_runtime, left_floats, right_floats, &options) {
-        Some(layout) => { Run::render_layout(&layout) },
+        Some(layout) => Run::render_layout(&layout),
         None => Run::get_fallback_run(),
     };
-    let t7 = if show_timings { Some(PreciseTime::now()) } else { None };
+    let t7 = get_time(timed);
     Run::show_all(&runs, options.escape_for_readline);
-    let t8 = if show_timings { Some(PreciseTime::now()) } else { None };
-    if show_timings {
+    let t8 = get_time(timed);
+    if timed {
         println!("Fmt Path:      {}", t1.unwrap().to(t2.unwrap()));
         println!("Fmt Git:       {}", t2.unwrap().to(t3.unwrap()));
         println!("Fmt Date:      {}", t3.unwrap().to(t5.unwrap()));
@@ -123,6 +121,13 @@ fn run() -> Result<()> {
         println!("Total:         {}", t1.unwrap().to(t8.unwrap()));
     }
     return Ok(());
+}
+
+fn get_time(timed: bool) -> Option<PreciseTime> {
+    match timed {
+        true => Some(PreciseTime::now()),
+        false => None,
+    }
 }
 
 fn format_path(alt_home: Option<&str>) -> Result<Div> {
@@ -241,7 +246,10 @@ mod tests {
     }
 
     fn do_test(width: usize, dt_str: &str, left: Vec<&str>, right: Vec<&str>, result: Vec<&str>) {
-        let options = LayoutOptions::new().width(width).use_color(false).use_safe_corners(true);
+        let options = LayoutOptions::new()
+            .width(width)
+            .use_color(false)
+            .use_safe_corners(true);
         let dt = Div::new(Span::new(dt_str));
         let l = left.iter()
             .map(|s| Div::new(Span::new(s)))

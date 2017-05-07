@@ -116,7 +116,8 @@ impl Run {
     }
 
     fn add_span(&mut self, span: &Span, escape_for_readline: bool) {
-        self.add_formatted(&span.content, Format::Span(span.format_style(escape_for_readline)));
+        self.add_formatted(&span.content,
+                           Format::Span(span.format_style(escape_for_readline)));
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
@@ -222,12 +223,12 @@ impl Run {
             }
             if !self.use_safe_corners {
                 out.push(match *ch {
-                    '┌' => '╭',
-                    '└' => '╰',
-                    '┐' => '╮',
-                    '┘' => '╯',
-                    c => c,
-                });
+                             '┌' => '╭',
+                             '└' => '╰',
+                             '┐' => '╮',
+                             '┘' => '╯',
+                             c => c,
+                         });
             } else {
                 out.push(*ch);
             }

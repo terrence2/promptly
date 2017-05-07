@@ -170,7 +170,8 @@ impl Span {
                               .iter()
                               .map(|c| format!("{}", c.encode_foreground()))
                               .collect::<Vec<String>>());
-        return Self::make_readline_safe(&("\x1B[".to_owned() + &style.join(";") + "m"), escape_for_readline);
+        return Self::make_readline_safe(&("\x1B[".to_owned() + &style.join(";") + "m"),
+                                        escape_for_readline);
     }
 
     pub fn make_readline_safe(s: &str, escape_for_readline: bool) -> String {
@@ -316,8 +317,12 @@ impl Layout {
             use_safe_arrow: options.use_safe_arrow,
             use_safe_corners: options.use_safe_corners,
             escape_for_readline: options.escape_for_readline,
-            border_format: options.border_template.format_style(options.escape_for_readline),
-            prompt_format: options.prompt_template.format_style(options.escape_for_readline),
+            border_format: options
+                .border_template
+                .format_style(options.escape_for_readline),
+            prompt_format: options
+                .prompt_template
+                .format_style(options.escape_for_readline),
         }
     }
 
