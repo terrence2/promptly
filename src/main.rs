@@ -242,14 +242,15 @@ mod tests {
     use super::Layout;
 
     fn format_runs(runs: &Vec<Run>) -> Vec<String> {
-        runs.iter().map(|r| r.format()).collect::<Vec<String>>()
+        runs.iter().map(|r| r.format(false)).collect::<Vec<String>>()
     }
 
     fn do_test(width: usize, dt_str: &str, left: Vec<&str>, right: Vec<&str>, result: Vec<&str>) {
         let options = LayoutOptions::new()
             .width(width)
             .use_color(false)
-            .use_safe_corners(true);
+            .use_safe_corners(true)
+            .escape_for_readline(false);
         let dt = Div::new(Span::new(dt_str));
         let l = left.iter()
             .map(|s| Div::new(Span::new(s)))
