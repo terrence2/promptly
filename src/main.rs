@@ -42,8 +42,6 @@ use std::env::{current_dir, var};
 use time::PreciseTime;
 use users::{get_current_username, get_effective_uid};
 
-const DATE_FORMAT: &str = "%d %b %H:%M:%S";
-
 quick_main!(run);
 fn run() -> Result<()> {
     let parser = clap_app!(promptly =>
@@ -77,6 +75,7 @@ fn run() -> Result<()> {
         false => Span::new("").foreground(Color::Red).bold(),
     };
     let prompt_template = Span::new("").foreground(Color::Green).dimmed();
+    let prior_runtime = format_run_time(prior_runtime_seconds);
 
     let mut left_floats = Vec::<Div>::new();
     let mut right_floats = Vec::<Div>::new();
@@ -87,15 +86,11 @@ fn run() -> Result<()> {
     left_floats.push(path_div);
 
     let t2 = if show_timings { Some(PreciseTime::now()) } else { None };
-    let current_time = Local::now();
-    right_floats.push(Div::new(Span::new(&current_time.format(DATE_FORMAT).to_string())));
-
-    let t3 = if show_timings { Some(PreciseTime::now()) } else { None };
     let git_branch = find_git_branch();
     git_branch.map(|branch| left_floats.push(format_git_branch(&branch)));
 
-    let t4 = if show_timings { Some(PreciseTime::now()) } else { None };
-    let prior_runtime = format_run_time(prior_runtime_seconds);
+    let t3 = if show_timings { Some(PreciseTime::now()) } else { None };
+    right_floats.push(format_date_time());
 
     let t5 = if show_timings { Some(PreciseTime::now()) } else { None };
     right_floats.push(format_user_host());
@@ -116,9 +111,8 @@ fn run() -> Result<()> {
     let t8 = if show_timings { Some(PreciseTime::now()) } else { None };
     if show_timings {
         println!("Fmt Path:      {}", t1.unwrap().to(t2.unwrap()));
-        println!("Fmt Date:      {}", t2.unwrap().to(t3.unwrap()));
-        println!("Fmt Git:       {}", t3.unwrap().to(t4.unwrap()));
-        println!("Fmt Runtime:   {}", t4.unwrap().to(t5.unwrap()));
+        println!("Fmt Git:       {}", t2.unwrap().to(t3.unwrap()));
+        println!("Fmt Date:      {}", t3.unwrap().to(t5.unwrap()));
         println!("Fmt User/Host: {}", t5.unwrap().to(t6.unwrap()));
         println!("Layout&Render: {}", t6.unwrap().to(t7.unwrap()));
         println!("Writing:       {}", t7.unwrap().to(t8.unwrap()));
@@ -197,6 +191,19 @@ fn format_git_branch(branch: &str) -> Div {
     div.add_span(Span::new("{").bold());
     div.add_span(Span::new(branch).foreground(Color::Yellow).bold());
     div.add_span(Span::new("}").bold());
+    return div;
+}
+
+fn format_date_time() -> Div {
+    let current_time = Local::now();
+    let mut div = Div::new_empty();
+    div.add_span(Span::new(&current_time.format("%d ").to_string()).foreground(Color::Green));
+    div.add_span(Span::new(&current_time.format("%b ").to_string()).foreground(Color::Cyan));
+    div.add_span(Span::new(&current_time.format("%H").to_string()).foreground(Color::Yellow));
+    div.add_span(Span::new(":").foreground(Color::White).dimmed());
+    div.add_span(Span::new(&current_time.format("%M").to_string()).foreground(Color::Yellow));
+    div.add_span(Span::new(":").foreground(Color::White).dimmed());
+    div.add_span(Span::new(&current_time.format("%S").to_string()).foreground(Color::Yellow));
     return div;
 }
 
