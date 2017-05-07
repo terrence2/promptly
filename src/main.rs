@@ -21,7 +21,9 @@ extern crate chrono;
 #[macro_use]
 extern crate clap;
 extern crate git2;
+extern crate hostname;
 extern crate time;
+extern crate users;
 
 mod errors {
     error_chain!{}
@@ -35,8 +37,10 @@ use render::Run;
 use chrono::Local;
 use errors::{Result, ResultExt};
 use git2::Repository;
+use hostname::get_hostname;
 use std::env::{current_dir, var};
 use time::PreciseTime;
+use users::{get_current_username, get_effective_uid};
 
 const DATE_FORMAT: &str = "%d %b %H:%M:%S";
 
@@ -94,6 +98,9 @@ fn run() -> Result<()> {
     let prior_runtime = format_run_time(prior_runtime_seconds);
 
     let t5 = if show_timings { Some(PreciseTime::now()) } else { None };
+    right_floats.push(format_user_host());
+
+    let t6 = if show_timings { Some(PreciseTime::now()) } else { None };
     let options = LayoutOptions::new()
         .verbose(args.occurrences_of("verbose") > 0)
         .use_safe_arrow(args.occurrences_of("safe_arrow") > 0)
@@ -104,16 +111,18 @@ fn run() -> Result<()> {
         Some(layout) => { Run::render_layout(&layout) },
         None => Run::get_fallback_run(),
     };
-    let t6 = if show_timings { Some(PreciseTime::now()) } else { None };
-    Run::show_all(&runs);
     let t7 = if show_timings { Some(PreciseTime::now()) } else { None };
+    Run::show_all(&runs);
+    let t8 = if show_timings { Some(PreciseTime::now()) } else { None };
     if show_timings {
         println!("Fmt Path:      {}", t1.unwrap().to(t2.unwrap()));
         println!("Fmt Date:      {}", t2.unwrap().to(t3.unwrap()));
         println!("Fmt Git:       {}", t3.unwrap().to(t4.unwrap()));
         println!("Fmt Runtime:   {}", t4.unwrap().to(t5.unwrap()));
-        println!("Layout&Render: {}", t5.unwrap().to(t6.unwrap()));
-        println!("Writing:       {}", t6.unwrap().to(t7.unwrap()));
+        println!("Fmt User/Host: {}", t5.unwrap().to(t6.unwrap()));
+        println!("Layout&Render: {}", t6.unwrap().to(t7.unwrap()));
+        println!("Writing:       {}", t7.unwrap().to(t8.unwrap()));
+        println!("Total:         {}", t1.unwrap().to(t8.unwrap()));
     }
     return Ok(());
 }
@@ -191,6 +200,26 @@ fn format_git_branch(branch: &str) -> Div {
     return div;
 }
 
+fn format_user_host() -> Div {
+    let username = match get_current_username() {
+        None => "<unknown_user>".to_owned(),
+        Some(un) => un,
+    };
+    let hostname = match get_hostname() {
+        None => "<unknown_host>".to_owned(),
+        Some(hn) => hn,
+    };
+    let mut span = Span::new(&username);
+    span = match get_effective_uid() {
+        0 => span.foreground(Color::Red).bold(),
+        _ => span.foreground(Color::Blue).dimmed(),
+    };
+    let mut div = Div::new(span);
+    div.add_span(Span::new("@").foreground(Color::White).dimmed());
+    div.add_span(Span::new(&hostname).foreground(Color::Green).dimmed());
+    return div;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -213,7 +242,7 @@ mod tests {
         let layout = Layout::build(dt, l, r, &options).unwrap();
         let runs = Run::render_layout(&layout);
         assert_eq!(format_runs(&runs), result);
-        //super::show_runs(&runs);
+        //for r in runs { r.show(); }
     }
 
     #[test]
@@ -223,7 +252,7 @@ mod tests {
                 vec!["AAAA", "BBBB", "CCCC"],
                 vec!["DDDD", "EEEE"],
                 vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┘ EEEE ┴─────",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┴ EEEE ┴─────",
                      "└➤ "]);
     }
 
@@ -234,7 +263,7 @@ mod tests {
                 vec!["AAAA", "BBBB", "CCCC"],
                 vec!["DDDD", "EEEE"],
                 vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┘ EEEE ┴─────",
+                     "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┴ EEEE ┴─────",
                      "└➤ "]);
     }
 

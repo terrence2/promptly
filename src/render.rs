@@ -309,6 +309,7 @@ impl Run {
                 runs[i].add_south_border(row.offset);
                 row.add_border("└");
                 for f in layout.right_by_row[i].iter() {
+                    row.add_east_border();
                     row.add(" ");
                     row.add_div(f);
                     row.add(" ");
