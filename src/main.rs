@@ -178,7 +178,16 @@ fn format_run_time(t: i32) -> Div {
 }
 
 fn find_git_branch() -> Option<String> {
-    let repo = match Repository::open(".") {
+    for path in vec![".", "..", "../..", "../../.."] {
+        if let Some(branch) = find_git_branch_at(path) {
+            return Some(branch);
+        }
+    }
+    return None;
+}
+
+fn find_git_branch_at(path: &'static str) -> Option<String> {
+    let repo = match Repository::open(path) {
         Ok(repo) => repo,
         Err(_) => return None,
     };
