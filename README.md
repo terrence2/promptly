@@ -16,12 +16,14 @@ the bash equivalent takes to execute.
 1) I've not yet had enough demand to ship binary packages, so to install you'll need Rust.
 Go to [rustup.rs](http://www.rustup.rs) and install Rust version 1.17 or greater by following
 the easy, on-screen directions.
-2) Then, in a terminal, do `cargo install promptly`. If there are red lines, please file an issue!
+2) Then, in the project directory, do `cargo install`. If there are red lines, please file an issue!
 3) Run `promptly --status 0 --time 0 --width 80 --no-readline` to make sure it's working. If things don't
 appear to be rendering properly in your terminal, adjust the command line and fonts until things
 look as awesome as desired. You can run `promptly --help` to see the available rendering options.
-4) Finally, install `promptly` as your prompt command. These instructions are for `bash`. For other shells,
-consult your shell's documentation and please file a PR with the instructions once you get it working.
+4) Finally, install `promptly` as your prompt command -
+
+#### Bash
+
 ```$bash
 # Add cargo's bin dir to path.
 export PATH="${PATH}:${HOME}/.cargo/bin"
@@ -45,3 +47,36 @@ function doprompt {
 trap 'timer_start' DEBUG
 export PROMPT_COMMAND=doprompt
 ```
+
+#### Zsh
+
+```$zsh
+# Add cargo's bin dir to path.
+export PATH="${PATH}:${HOME}/.cargo/bin"
+
+function timer_start {
+  timer=${timer:-$SECONDS}
+}
+function timer_stop {
+  if [ $timer ]; then
+    TIMER_OUT=$(($SECONDS - $timer))
+    unset timer
+  else
+    TIMER_OUT=0
+  fi
+}
+
+# We have to wrap promptly in a sub-command to capture the status code.
+function doprompt {
+  STATUS_OUT=$?
+  timer_stop
+  export PS1=$(promptly --no-readline --status ${STATUS_OUT} --width ${COLUMNS} --time ${TIMER_OUT})
+}
+
+preexec_functions+=(timer_start)
+precmd_functions+=(doprompt)
+```
+
+#### Other shells
+
+Consult your shell's documentation and please file a PR with the instructions once you get it working.
