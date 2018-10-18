@@ -456,7 +456,7 @@ mod tests {
             vec!["DDDD", "EEEEEEEE"],
             vec![
                 "┬──────────┬──┐ TTT ",
-                "├ DDDD ────┤        ",
+                "├ DDDD ────┤  └─────",
                 "├ EEEEEEEE ┤        ",
                 "├ AAAA ────┤        ",
                 "├ BBBB ────┤        ",
