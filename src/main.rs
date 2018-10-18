@@ -15,19 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#[macro_use]
-extern crate error_chain;
 extern crate chrono;
 #[macro_use]
 extern crate clap;
+extern crate failure;
 extern crate git2;
 extern crate hostname;
 extern crate time;
 extern crate users;
 
-mod errors {
-    error_chain!{}
-}
 mod layout;
 mod render;
 
@@ -35,15 +31,14 @@ use layout::{Color, Div, Layout, LayoutOptions, Span};
 use render::Run;
 
 use chrono::Local;
-use errors::{Result, ResultExt};
+use failure::Fallible;
 use git2::Repository;
 use hostname::get_hostname;
 use std::env::{current_dir, var};
 use time::PreciseTime;
 use users::{get_current_username, get_effective_uid};
 
-quick_main!(run);
-fn run() -> Result<()> {
+fn main() -> Fallible<()> {
     let parser = clap_app!(promptly =>
         (version: "0.1")
         (author: "Terrence Cole <terrence.d.cole@gmail.com>")
@@ -61,16 +56,8 @@ fn run() -> Result<()> {
     let args = parser.get_matches();
 
     let timed = args.occurrences_of("timed") > 0;
-    let columns = args
-        .value_of("width")
-        .unwrap()
-        .parse::<usize>()
-        .chain_err(|| "expected positive integer width")?;
-    let prior_runtime_seconds = args
-        .value_of("time")
-        .unwrap()
-        .parse::<i32>()
-        .chain_err(|| "expected integer time")?;
+    let columns = args.value_of("width").unwrap().parse::<usize>()?;
+    let prior_runtime_seconds = args.value_of("time").unwrap().parse::<i32>()?;
 
     let border_template = if args.value_of("status").unwrap() == "0" {
         Span::new("").foreground(Color::Blue).bold()
@@ -84,8 +71,7 @@ fn run() -> Result<()> {
     let mut right_floats = Vec::<Div>::new();
 
     let t1 = get_time(timed);
-    let path_div =
-        format_path(args.value_of("alternate_home")).chain_err(|| "failed to format the path")?;
+    let path_div = format_path(args.value_of("alternate_home"))?;
     left_floats.push(path_div);
 
     let t2 = get_time(timed);
@@ -135,11 +121,11 @@ fn get_time(timed: bool) -> Option<PreciseTime> {
     None
 }
 
-fn format_path(alt_home: Option<&str>) -> Result<Div> {
-    let path = current_dir().chain_err(|| "failed to getcwd")?;
+fn format_path(alt_home: Option<&str>) -> Fallible<Div> {
+    let path = current_dir()?;
     let raw_path_str = path.to_str().unwrap_or("<error>");
     let home_str = match alt_home {
-        None => var("HOME").chain_err(|| "failed to get HOME")?,
+        None => var("HOME")?,
         Some(alt) => alt.to_owned(),
     };
     let path_str = if raw_path_str.starts_with(&home_str) {
