@@ -1,7 +1,16 @@
 [package]
 name = "promptly"
-version = "0.1.0"
+description = "Get a beautiful prompt, sooner."
 authors = ["Terrence Cole <terrence.d.cole@gmail.com>"]
+version = "0.2.0"
+keywords = ["prompt"]
+categories = ["command-line-interface", "command-line-utilities"]
+readme = "README.md"
+license = "GPL-3.0-or-later"
+documentation = "https://github.com/terrence2/promptly.git"
+homepage = "https://github.com/terrence2/promptly.git"
+repository = "https://github.com/terrence2/promptly.git"
+publish = false
 
 [dependencies]
 failure = "0.1.2"

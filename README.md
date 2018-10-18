@@ -1,5 +1,5 @@
 # promptly
-Get a prompt, promptly.
+Get a beautiful prompt, sooner.
 
 ### What is this?
 
