@@ -273,7 +273,9 @@ mod tests {
         let layout = Layout::build(dt, l, r, &options).unwrap();
         let runs = Run::render_layout(&layout);
         assert_eq!(format_runs(&runs), result);
-        //for r in runs { r.show(); }
+        // for r in runs {
+        //     r.show(false);
+        // }
     }
 
     #[test]
@@ -422,6 +424,44 @@ mod tests {
                 "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
                 "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
                 "├ DDDDD ──────┘              ",
+                "└➤ ",
+            ],
+        );
+    }
+
+    #[test]
+    fn drop_left_4_2_stretch_more() {
+        do_test(
+            23,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬───────┬─┬──────┐ TTT ",
+                "├ AAAA ─┤ ├ DDDD ┴───┬─",
+                "├ BBBB ─┤ └ EEEEEEEE ┘ ",
+                "├ CCCCC ┤              ",
+                "├ DDDDD ┘              ",
+                "└➤ ",
+            ],
+        );
+    }
+
+    #[test]
+    fn drop_left_6_2_stretch_more() {
+        do_test(
+            20,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────────┬──┐ TTT ",
+                "├ DDDD ────┤        ",
+                "├ EEEEEEEE ┤        ",
+                "├ AAAA ────┤        ",
+                "├ BBBB ────┤        ",
+                "├ CCCCC ───┤        ",
+                "├ DDDDD ───┘        ",
                 "└➤ ",
             ],
         );
