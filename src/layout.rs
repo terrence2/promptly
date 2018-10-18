@@ -528,10 +528,14 @@ impl Layout {
         };
 
         // Re-arrange the boxes such that everything is packed on the left.
-        let mut pile = Vec::new();
-        pile.append(&mut right_floats.clone());
-        pile.append(&mut left_floats.clone());
-        Layout::build(prior_dt, pile, Vec::new(), options)
+        if !right_floats.is_empty() {
+            let mut pile = Vec::new();
+            pile.append(&mut right_floats.clone());
+            pile.append(&mut left_floats.clone());
+            return Layout::build(prior_dt, pile, Vec::new(), options);
+        }
+
+        None
     }
 
     fn split_for_width(width: usize, mut floats: Vec<Div>) -> Vec<Vec<Div>> {
