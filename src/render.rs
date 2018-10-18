@@ -59,7 +59,7 @@ impl Run {
 
     fn new(width: usize, layout: &Layout) -> Self {
         Run {
-            width: width,
+            width,
             cells: std::iter::repeat(' ').take(width).collect::<Vec<char>>(),
             formats: std::iter::repeat(None)
                 .take(width)
@@ -127,7 +127,7 @@ impl Run {
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
-        return match self.cells[offset] {
+        match self.cells[offset] {
             '─' => true,
             '│' => true,
             '┼' => true,
@@ -140,19 +140,18 @@ impl Run {
             '┬' => true,
             '┴' => true,
             _ => false,
-        };
+        }
     }
 
     fn find_time_corner_border(&self, start: usize) -> Option<usize> {
         let mut offset = start;
         while offset < self.width {
-            match self.cells[offset] {
-                '┐' => return Some(offset),
-                _ => {}
+            if self.cells[offset] == '┐' {
+                return Some(offset);
             }
             offset += 1;
         }
-        return None;
+        None
     }
 
     fn find_next_border(&self, start: usize) -> Option<usize> {
@@ -174,7 +173,7 @@ impl Run {
             }
             offset += 1;
         }
-        return None;
+        None
     }
 
     fn add_south_border(&mut self, offset: usize) {
@@ -220,10 +219,10 @@ impl Run {
                 for fmt in maybe_fmt.iter() {
                     out += &Span::get_reset_style(escape_for_readline);
                     match fmt {
-                        &Format::Clear => {}
-                        &Format::Border => out += &self.border_format,
-                        &Format::Prompt => out += &self.prompt_format,
-                        &Format::Span(ref s) => out += &s,
+                        Format::Clear => {}
+                        Format::Border => out += &self.border_format,
+                        Format::Prompt => out += &self.prompt_format,
+                        Format::Span(ref s) => out += &s,
                     }
                 }
             }
@@ -239,14 +238,14 @@ impl Run {
                 out.push(*ch);
             }
         }
-        return out;
+        out
     }
 
     pub fn show(&self, escape_for_readline: bool) {
         println!("{}", self.format(escape_for_readline));
     }
 
-    pub fn show_all(runs: &Vec<Run>, escape_for_readline: bool) {
+    pub fn show_all(runs: &[Run], escape_for_readline: bool) {
         for run in runs {
             run.show(escape_for_readline);
         }
@@ -301,7 +300,7 @@ impl Run {
 
             // Emit LEFT
             if layout.left_by_row.len() > i {
-                for f in layout.left_by_row[i].iter() {
+                for f in &layout.left_by_row[i] {
                     row.add_east_border();
                     row.add(" ");
                     row.add_div(f, layout.escape_for_readline);
@@ -328,31 +327,23 @@ impl Run {
             if layout.right_by_row.len() > i {
                 runs[i].add_south_border(row.offset);
                 row.add_border("└");
-                for f in layout.right_by_row[i].iter() {
+                for f in &layout.right_by_row[i] {
                     row.add_east_border();
                     row.add(" ");
                     row.add_div(f, layout.escape_for_readline);
                     row.add(" ");
 
                     if i == 0 && f == layout.right_by_row[i].last().unwrap() {
-                        match runs[i].find_time_corner_border(row.offset) {
-                            Some(next_border) => {
-                                let offset = next_border - row.offset;
-                                if offset > 0 {
-                                    row.repeat_border('─', offset);
-                                }
+                        if let Some(next_border) = runs[i].find_time_corner_border(row.offset) {
+                            let offset = next_border - row.offset;
+                            if offset > 0 {
+                                row.repeat_border('─', offset);
                             }
-                            None => {}
                         }
-                    } else {
-                        match runs[i].find_next_border(row.offset) {
-                            Some(next_border) => {
-                                let offset = next_border - row.offset;
-                                if offset > 0 {
-                                    row.repeat_border('─', offset);
-                                }
-                            }
-                            None => {}
+                    } else if let Some(next_border) = runs[i].find_next_border(row.offset) {
+                        let offset = next_border - row.offset;
+                        if offset > 0 {
+                            row.repeat_border('─', offset);
                         }
                     }
                     runs[i].add_south_border(row.offset);
@@ -369,14 +360,11 @@ impl Run {
 
         let mut run_last = Run::new(3, layout);
         run_last.add_border("└");
-        let arrow = match layout.use_safe_arrow {
-            false => "➤",
-            true => ">",
-        };
+        let arrow = if layout.use_safe_arrow { ">" } else { "➤" };
         run_last.add_prompt(arrow);
         run_last.add(" ");
 
         runs.push(run_last);
-        return runs;
+        runs
     }
 }

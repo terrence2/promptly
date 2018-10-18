@@ -72,9 +72,10 @@ fn run() -> Result<()> {
         .parse::<i32>()
         .chain_err(|| "expected integer time")?;
 
-    let border_template = match args.value_of("status").unwrap() == "0" {
-        true => Span::new("").foreground(Color::Blue).bold(),
-        false => Span::new("").foreground(Color::Red).bold(),
+    let border_template = if args.value_of("status").unwrap() == "0" {
+        Span::new("").foreground(Color::Blue).bold()
+    } else {
+        Span::new("").foreground(Color::Red).bold()
     };
     let prompt_template = Span::new("").foreground(Color::Green).dimmed();
     let prior_runtime = format_run_time(prior_runtime_seconds);
@@ -89,7 +90,9 @@ fn run() -> Result<()> {
 
     let t2 = get_time(timed);
     let git_branch = find_git_branch();
-    git_branch.map(|branch| left_floats.push(format_git_branch(&branch)));
+    if let Some(branch) = git_branch {
+        left_floats.push(format_git_branch(&branch));
+    }
 
     let t3 = get_time(timed);
     right_floats.push(format_date_time());
@@ -122,14 +125,14 @@ fn run() -> Result<()> {
         println!("Writing:       {}", t7.unwrap().to(t8.unwrap()));
         println!("Total:         {}", t1.unwrap().to(t8.unwrap()));
     }
-    return Ok(());
+    Ok(())
 }
 
 fn get_time(timed: bool) -> Option<PreciseTime> {
-    match timed {
-        true => Some(PreciseTime::now()),
-        false => None,
+    if timed {
+        return Some(PreciseTime::now());
     }
+    None
 }
 
 fn format_path(alt_home: Option<&str>) -> Result<Div> {
@@ -139,11 +142,12 @@ fn format_path(alt_home: Option<&str>) -> Result<Div> {
         None => var("HOME").chain_err(|| "failed to get HOME")?,
         Some(alt) => alt.to_owned(),
     };
-    let path_str = match raw_path_str.starts_with(&home_str) {
-        true => raw_path_str.replace(&home_str, "~"),
-        false => raw_path_str.to_owned(),
+    let path_str = if raw_path_str.starts_with(&home_str) {
+        raw_path_str.replace(&home_str, "~")
+    } else {
+        raw_path_str.to_owned()
     };
-    return Ok(Div::new(Span::new(&path_str).bold()));
+    Ok(Div::new(Span::new(&path_str).bold()))
 }
 
 fn format_run_time(t: i32) -> Div {
@@ -156,7 +160,7 @@ fn format_run_time(t: i32) -> Div {
     let mut s = t;
     if s > 3600 {
         let h = s / 3600;
-        s = s - 3600 * h;
+        s -= 3600 * h;
         out.add_span(
             Span::new(&format!("{}", h))
                 .foreground(Color::Purple)
@@ -166,7 +170,7 @@ fn format_run_time(t: i32) -> Div {
     }
     if s > 60 {
         let m = s / 60;
-        s = s - 60 * m;
+        s -= 60 * m;
         out.add_span(
             Span::new(&format!("{}", m))
                 .foreground(Color::Purple)
@@ -182,16 +186,16 @@ fn format_run_time(t: i32) -> Div {
         );
         out.add_span(Span::new("s").foreground(Color::Purple).dimmed());
     }
-    return out;
+    out
 }
 
 fn find_git_branch() -> Option<String> {
-    for path in vec![".", "..", "../..", "../../.."] {
+    for path in &[".", "..", "../..", "../../.."] {
         if let Some(branch) = find_git_branch_at(path) {
             return Some(branch);
         }
     }
-    return None;
+    None
 }
 
 fn find_git_branch_at(path: &'static str) -> Option<String> {
@@ -203,12 +207,12 @@ fn find_git_branch_at(path: &'static str) -> Option<String> {
         Ok(head) => head,
         Err(_) => return None,
     };
-    return Some(
+    Some(
         match head.shorthand() {
             Some(tgt) => tgt,
             None => "(detached)",
         }.to_owned(),
-    );
+    )
 }
 
 fn format_git_branch(branch: &str) -> Div {
@@ -218,7 +222,7 @@ fn format_git_branch(branch: &str) -> Div {
     div.add_span(Span::new("{").bold());
     div.add_span(Span::new(branch).foreground(Color::Yellow).bold());
     div.add_span(Span::new("}").bold());
-    return div;
+    div
 }
 
 fn format_date_time() -> Div {
@@ -231,7 +235,7 @@ fn format_date_time() -> Div {
     div.add_span(Span::new(&current_time.format("%M").to_string()).foreground(Color::Yellow));
     div.add_span(Span::new(":").foreground(Color::White).dimmed());
     div.add_span(Span::new(&current_time.format("%S").to_string()).foreground(Color::Yellow));
-    return div;
+    div
 }
 
 fn format_user_host() -> Div {
@@ -251,7 +255,7 @@ fn format_user_host() -> Div {
     let mut div = Div::new(span);
     div.add_span(Span::new("@").foreground(Color::White).dimmed());
     div.add_span(Span::new(&hostname).foreground(Color::Green).dimmed());
-    return div;
+    div
 }
 
 #[cfg(test)]
