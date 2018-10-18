@@ -15,9 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+use std;
 use std::cmp;
 use std::collections::HashSet;
-use std;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Color {
@@ -41,7 +41,7 @@ pub enum Color {
 
 impl Color {
     fn encode_foreground(&self) -> u8 {
-        return self.clone() as u8;
+        self.clone() as u8
     }
 
     #[allow(dead_code)]
@@ -64,7 +64,7 @@ pub enum Style {
 
 impl Style {
     fn encode(&self) -> u8 {
-        return self.clone() as u8;
+        self.clone() as u8
     }
 }
 
@@ -87,97 +87,107 @@ impl Span {
     }
 
     pub fn width(&self) -> usize {
-        return self.content.chars().count();
+        self.content.chars().count()
     }
 
     pub fn foreground(mut self, clr: Color) -> Self {
         self.foreground = Some(clr);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn background(mut self, clr: Color) -> Self {
         self.background = Some(clr);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn bold(mut self) -> Self {
         self.styles.insert(Style::Bold);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn dimmed(mut self) -> Self {
         self.styles.insert(Style::Dimmed);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn italic(mut self) -> Self {
         self.styles.insert(Style::Italic);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn underline(mut self) -> Self {
         self.styles.insert(Style::Underline);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn blink(mut self) -> Self {
         self.styles.insert(Style::Blink);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn reverse(mut self) -> Self {
         self.styles.insert(Style::Reverse);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn hidden(mut self) -> Self {
         self.styles.insert(Style::Hidden);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn strike_through(mut self) -> Self {
         self.styles.insert(Style::StrikeThrough);
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn get_reset_style(escape_for_readline: bool) -> String {
-        return Self::make_readline_safe("\x1B[0m", escape_for_readline);
+        Self::make_readline_safe("\x1B[0m", escape_for_readline)
     }
 
     pub fn format_style(&self, escape_for_readline: bool) -> String {
-        if self.foreground.is_none() && self.background.is_none() && self.styles.len() == 0 {
+        if self.foreground.is_none() && self.background.is_none() && self.styles.is_empty() {
             return "".to_owned();
         }
-        let mut style = self.styles
+        let mut style = self
+            .styles
             .iter()
             .map(|s| format!("{}", s.encode()))
             .collect::<Vec<String>>();
-        style.append(&mut self.background
-                              .iter()
-                              .map(|c| format!("{}", c.encode_foreground()))
-                              .collect::<Vec<String>>());
-        style.append(&mut self.foreground
-                              .iter()
-                              .map(|c| format!("{}", c.encode_foreground()))
-                              .collect::<Vec<String>>());
-        return Self::make_readline_safe(&("\x1B[".to_owned() + &style.join(";") + "m"),
-                                        escape_for_readline);
+        style.append(
+            &mut self
+                .background
+                .iter()
+                .map(|c| format!("{}", c.encode_foreground()))
+                .collect::<Vec<String>>(),
+        );
+        style.append(
+            &mut self
+                .foreground
+                .iter()
+                .map(|c| format!("{}", c.encode_foreground()))
+                .collect::<Vec<String>>(),
+        );
+        Self::make_readline_safe(
+            &("\x1B[".to_owned() + &style.join(";") + "m"),
+            escape_for_readline,
+        )
     }
 
     pub fn make_readline_safe(s: &str, escape_for_readline: bool) -> String {
-        match escape_for_readline {
-            true => "\\[".to_owned() + s + "\\]",
-            false => s.to_owned(),
+        if escape_for_readline {
+            "\\[".to_owned() + s + "\\]"
+        } else {
+            s.to_owned()
         }
     }
 }
@@ -193,7 +203,9 @@ impl Div {
     }
 
     pub fn new_empty() -> Self {
-        Div { children: Vec::new() }
+        Div {
+            children: Vec::new(),
+        }
     }
 
     pub fn add_span(&mut self, span: Span) {
@@ -201,11 +213,11 @@ impl Div {
     }
 
     pub fn width(&self) -> usize {
-        return self.children.iter().map(|s| s.width()).sum();
+        self.children.iter().map(|s| s.width()).sum()
     }
 
     pub fn iter_spans(&self) -> std::slice::Iter<Span> {
-        return self.children.iter();
+        self.children.iter()
     }
 }
 
@@ -236,47 +248,47 @@ impl LayoutOptions {
 
     pub fn width(mut self, value: usize) -> LayoutOptions {
         self.width = value;
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn verbose(mut self, value: bool) -> LayoutOptions {
         self.verbose = value;
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn use_color(mut self, value: bool) -> LayoutOptions {
         self.use_color = value;
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn use_safe_arrow(mut self, value: bool) -> LayoutOptions {
         self.use_safe_arrow = value;
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn use_safe_corners(mut self, value: bool) -> LayoutOptions {
         self.use_safe_corners = value;
-        return self;
+        self
     }
 
     #[allow(dead_code)]
     pub fn escape_for_readline(mut self, value: bool) -> LayoutOptions {
         self.escape_for_readline = value;
-        return self;
+        self
     }
 
     pub fn border_template(mut self, value: Span) -> LayoutOptions {
         self.border_template = value;
-        return self;
+        self
     }
 
     pub fn prompt_template(mut self, value: Span) -> LayoutOptions {
         self.prompt_template = value;
-        return self;
+        self
     }
 }
 
@@ -297,22 +309,23 @@ pub struct Layout {
 }
 
 impl Layout {
-    fn new(left_extent: usize,
-           right_extent: usize,
-           height: usize,
-           left_floats: Vec<Div>,
-           right_floats: Vec<Div>,
-           prior_runtime: Div,
-           options: &LayoutOptions)
-           -> Self {
+    fn new(
+        left_extent: usize,
+        right_extent: usize,
+        height: usize,
+        left_floats: Vec<Div>,
+        right_floats: Vec<Div>,
+        prior_runtime: Div,
+        options: &LayoutOptions,
+    ) -> Self {
         Layout {
-            left_extent: left_extent,
-            right_extent: right_extent,
+            left_extent,
+            right_extent,
             width: options.width,
-            height: height,
+            height,
             left_by_row: Self::split_for_width(left_extent, left_floats),
             right_by_row: Self::split_for_width(right_extent, right_floats),
-            prior_runtime: prior_runtime,
+            prior_runtime,
             use_color: options.use_color,
             use_safe_arrow: options.use_safe_arrow,
             use_safe_corners: options.use_safe_corners,
@@ -375,12 +388,12 @@ impl Layout {
     //
     //     ├ ┤ ┬ ┴
     //
-    pub fn build(prior_dt: Div,
-                 left_floats: Vec<Div>,
-                 right_floats: Vec<Div>,
-                 options: &LayoutOptions)
-                 -> Option<Layout> {
-
+    pub fn build(
+        prior_dt: Div,
+        left_floats: Vec<Div>,
+        right_floats: Vec<Div>,
+        options: &LayoutOptions,
+    ) -> Option<Layout> {
         // MEASUREMENTS:
         //
         //  v------------------- columns ---------------------v
@@ -452,13 +465,15 @@ impl Layout {
                     println!("    h_min_l: {}", h_min_left);
                 }
                 if h_max_right >= h_min_left {
-                    return Some(Layout::new(w_min_left,
-                                            w_max_right,
-                                            cmp::max(h_min_left, h_max_right),
-                                            left_floats,
-                                            right_floats,
-                                            prior_dt,
-                                            options));
+                    return Some(Layout::new(
+                        w_min_left,
+                        w_max_right,
+                        cmp::max(h_min_left, h_max_right),
+                        left_floats,
+                        right_floats,
+                        prior_dt,
+                        options,
+                    ));
                 }
             }
             None => {
@@ -470,8 +485,8 @@ impl Layout {
         };
 
         // If the maximal right did not allow the left side to fit well, re-try with a minimal right.
-        let (w_min_right, h_min_right) = Self::find_minimal_width(&right_floats,
-                                                                  2 + prior_dt.width());
+        let (w_min_right, h_min_right) =
+            Self::find_minimal_width(&right_floats, 2 + prior_dt.width());
         if options.verbose {
             println!("Pass3:");
             println!("    bump:    {}", 2 + prior_dt.width());
@@ -498,17 +513,19 @@ impl Layout {
             println!("    h_max_l: {}", h_max_left);
         }
 
-        return Some(Layout::new(w_max_left,
-                                w_min_right,
-                                cmp::max(h_max_left, h_min_right),
-                                left_floats,
-                                right_floats,
-                                prior_dt,
-                                options));
+        Some(Layout::new(
+            w_max_left,
+            w_min_right,
+            cmp::max(h_max_left, h_min_right),
+            left_floats,
+            right_floats,
+            prior_dt,
+            options,
+        ))
     }
 
     fn split_for_width(width: usize, mut floats: Vec<Div>) -> Vec<Vec<Div>> {
-        if floats.len() == 0 {
+        if floats.is_empty() {
             return vec![];
         }
 
@@ -522,7 +539,7 @@ impl Layout {
         let mut column = floats[0].width() + 3;
 
         out.push(vec![floats.remove(0)]);
-        while floats.len() > 0 {
+        while !floats.is_empty() {
             let f = floats.remove(0);
             let fw = 3 + f.width();
             if column + fw > width {
@@ -534,10 +551,10 @@ impl Layout {
             out[row].push(f);
         }
 
-        return out;
+        out
     }
 
-    fn find_minimal_width(floats: &Vec<Div>, bump: usize) -> (usize, usize) {
+    fn find_minimal_width(floats: &[Div], bump: usize) -> (usize, usize) {
         // Find the largest float. This is the minimum columns we can use.
         // Remember to increase the size of the first float for the bump.
         let mut min_columns = 0;
@@ -564,13 +581,10 @@ impl Layout {
             }
             offset += fw;
         }
-        return (min_columns, row_count + 1);
+        (min_columns, row_count + 1)
     }
 
-    fn pack_into_width(width_0: usize,
-                       width_n: usize,
-                       floats: &Vec<Div>)
-                       -> Option<(usize, usize)> {
+    fn pack_into_width(width_0: usize, width_n: usize, floats: &[Div]) -> Option<(usize, usize)> {
         let mut pack_width = 0;
         let mut pack_height = 0;
 
@@ -602,6 +616,6 @@ impl Layout {
                 pack_width = offset;
             }
         }
-        return Some((pack_width, pack_height + 1));
+        Some((pack_width, pack_height + 1))
     }
 }

@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-use layout::{Div, Span, Layout};
+use layout::{Div, Layout, Span};
 
 use std;
 
@@ -44,22 +44,22 @@ pub struct Run {
 impl Run {
     pub fn get_fallback_run() -> Vec<Self> {
         vec![Run {
-                 width: 2,
-                 cells: vec!['>', ' '],
-                 formats: vec![None, None],
-                 offset: 2,
-                 last_format: Format::Clear,
-                 use_color: false,
-                 use_safe_corners: false,
-                 clear_format: "".to_owned(),
-                 border_format: "".to_owned(),
-                 prompt_format: "".to_owned(),
-             }]
+            width: 2,
+            cells: vec!['>', ' '],
+            formats: vec![None, None],
+            offset: 2,
+            last_format: Format::Clear,
+            use_color: false,
+            use_safe_corners: false,
+            clear_format: "".to_owned(),
+            border_format: "".to_owned(),
+            prompt_format: "".to_owned(),
+        }]
     }
 
     fn new(width: usize, layout: &Layout) -> Self {
         Run {
-            width: width,
+            width,
             cells: std::iter::repeat(' ').take(width).collect::<Vec<char>>(),
             formats: std::iter::repeat(None)
                 .take(width)
@@ -98,15 +98,19 @@ impl Run {
     }
 
     fn repeat(&mut self, c: char, cnt: usize) {
-        self.add(&std::iter::repeat(c.to_string())
-                      .take(cnt)
-                      .collect::<String>());
+        self.add(
+            &std::iter::repeat(c.to_string())
+                .take(cnt)
+                .collect::<String>(),
+        );
     }
 
     fn repeat_border(&mut self, c: char, cnt: usize) {
-        self.add_border(&std::iter::repeat(c.to_string())
-                             .take(cnt)
-                             .collect::<String>());
+        self.add_border(
+            &std::iter::repeat(c.to_string())
+                .take(cnt)
+                .collect::<String>(),
+        );
     }
 
     fn add_div(&mut self, div: &Div, escape_for_readline: bool) {
@@ -116,37 +120,38 @@ impl Run {
     }
 
     fn add_span(&mut self, span: &Span, escape_for_readline: bool) {
-        self.add_formatted(&span.content,
-                           Format::Span(span.format_style(escape_for_readline)));
+        self.add_formatted(
+            &span.content,
+            Format::Span(span.format_style(escape_for_readline)),
+        );
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
-        return match self.cells[offset] {
-                   '─' => true,
-                   '│' => true,
-                   '┼' => true,
-                   '┌' => true,
-                   '└' => true,
-                   '┐' => true,
-                   '┘' => true,
-                   '├' => true,
-                   '┤' => true,
-                   '┬' => true,
-                   '┴' => true,
-                   _ => false,
-               };
+        match self.cells[offset] {
+            '─' => true,
+            '│' => true,
+            '┼' => true,
+            '┌' => true,
+            '└' => true,
+            '┐' => true,
+            '┘' => true,
+            '├' => true,
+            '┤' => true,
+            '┬' => true,
+            '┴' => true,
+            _ => false,
+        }
     }
 
     fn find_time_corner_border(&self, start: usize) -> Option<usize> {
         let mut offset = start;
         while offset < self.width {
-            match self.cells[offset] {
-                '┐' => return Some(offset),
-                _ => {}
+            if self.cells[offset] == '┐' {
+                return Some(offset);
             }
             offset += 1;
         }
-        return None;
+        None
     }
 
     fn find_next_border(&self, start: usize) -> Option<usize> {
@@ -168,7 +173,7 @@ impl Run {
             }
             offset += 1;
         }
-        return None;
+        None
     }
 
     fn add_south_border(&mut self, offset: usize) {
@@ -184,7 +189,7 @@ impl Run {
             '┤' => '┤',
             '┬' => '┬',
             '┴' => '┼',
-            _ => '_',// panic!("do not know how to add south border to: {}", self.cells[offset])
+            _ => '_', // panic!("do not know how to add south border to: {}", self.cells[offset])
         };
         self.cells[offset] = next;
     }
@@ -202,7 +207,7 @@ impl Run {
             '┤' => '┼',
             '┬' => '┬',
             '┴' => '┴',
-            _ => '_',//panic!("do not know how to add south border to: {}", self.cells[self.offset - 1])
+            _ => '_', //panic!("do not know how to add south border to: {}", self.cells[self.offset - 1])
         };
         self.cells[self.offset - 1] = next;
     }
@@ -214,33 +219,33 @@ impl Run {
                 for fmt in maybe_fmt.iter() {
                     out += &Span::get_reset_style(escape_for_readline);
                     match fmt {
-                        &Format::Clear => {}
-                        &Format::Border => out += &self.border_format,
-                        &Format::Prompt => out += &self.prompt_format,
-                        &Format::Span(ref s) => out += &s,
+                        Format::Clear => {}
+                        Format::Border => out += &self.border_format,
+                        Format::Prompt => out += &self.prompt_format,
+                        Format::Span(ref s) => out += &s,
                     }
                 }
             }
             if !self.use_safe_corners {
                 out.push(match *ch {
-                             '┌' => '╭',
-                             '└' => '╰',
-                             '┐' => '╮',
-                             '┘' => '╯',
-                             c => c,
-                         });
+                    '┌' => '╭',
+                    '└' => '╰',
+                    '┐' => '╮',
+                    '┘' => '╯',
+                    c => c,
+                });
             } else {
                 out.push(*ch);
             }
         }
-        return out;
+        out
     }
 
     pub fn show(&self, escape_for_readline: bool) {
         println!("{}", self.format(escape_for_readline));
     }
 
-    pub fn show_all(runs: &Vec<Run>, escape_for_readline: bool) {
+    pub fn show_all(runs: &[Run], escape_for_readline: bool) {
         for run in runs {
             run.show(escape_for_readline);
         }
@@ -274,8 +279,8 @@ impl Run {
         //  └➤ ls foo/bar
         //
         let mut runs: Vec<Run> = Vec::new();
-        let right_start = layout.width - (2 + layout.prior_runtime.width() + 1) -
-                          layout.right_extent;
+        let right_start =
+            layout.width - (2 + layout.prior_runtime.width() + 1) - layout.right_extent;
         let right_end = right_start + layout.right_extent;
 
         // row 0
@@ -295,7 +300,7 @@ impl Run {
 
             // Emit LEFT
             if layout.left_by_row.len() > i {
-                for f in layout.left_by_row[i].iter() {
+                for f in &layout.left_by_row[i] {
                     row.add_east_border();
                     row.add(" ");
                     row.add_div(f, layout.escape_for_readline);
@@ -322,31 +327,23 @@ impl Run {
             if layout.right_by_row.len() > i {
                 runs[i].add_south_border(row.offset);
                 row.add_border("└");
-                for f in layout.right_by_row[i].iter() {
+                for f in &layout.right_by_row[i] {
                     row.add_east_border();
                     row.add(" ");
                     row.add_div(f, layout.escape_for_readline);
                     row.add(" ");
 
                     if i == 0 && f == layout.right_by_row[i].last().unwrap() {
-                        match runs[i].find_time_corner_border(row.offset) {
-                            Some(next_border) => {
-                                let offset = next_border - row.offset;
-                                if offset > 0 {
-                                    row.repeat_border('─', offset);
-                                }
+                        if let Some(next_border) = runs[i].find_time_corner_border(row.offset) {
+                            let offset = next_border - row.offset;
+                            if offset > 0 {
+                                row.repeat_border('─', offset);
                             }
-                            None => {}
                         }
-                    } else {
-                        match runs[i].find_next_border(row.offset) {
-                            Some(next_border) => {
-                                let offset = next_border - row.offset;
-                                if offset > 0 {
-                                    row.repeat_border('─', offset);
-                                }
-                            }
-                            None => {}
+                    } else if let Some(next_border) = runs[i].find_next_border(row.offset) {
+                        let offset = next_border - row.offset;
+                        if offset > 0 {
+                            row.repeat_border('─', offset);
                         }
                     }
                     runs[i].add_south_border(row.offset);
@@ -363,14 +360,11 @@ impl Run {
 
         let mut run_last = Run::new(3, layout);
         run_last.add_border("└");
-        let arrow = match layout.use_safe_arrow {
-            false => "➤",
-            true => ">",
-        };
+        let arrow = if layout.use_safe_arrow { ">" } else { "➤" };
         run_last.add_prompt(arrow);
         run_last.add(" ");
 
         runs.push(run_last);
-        return runs;
+        runs
     }
 }

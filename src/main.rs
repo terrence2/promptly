@@ -15,35 +15,30 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#[macro_use]
-extern crate error_chain;
 extern crate chrono;
 #[macro_use]
 extern crate clap;
+extern crate failure;
 extern crate git2;
 extern crate hostname;
 extern crate time;
 extern crate users;
 
-mod errors {
-    error_chain!{}
-}
 mod layout;
 mod render;
 
-use layout::{Color, Div, Span, Layout, LayoutOptions};
+use layout::{Color, Div, Layout, LayoutOptions, Span};
 use render::Run;
 
 use chrono::Local;
-use errors::{Result, ResultExt};
+use failure::Fallible;
 use git2::Repository;
 use hostname::get_hostname;
 use std::env::{current_dir, var};
 use time::PreciseTime;
 use users::{get_current_username, get_effective_uid};
 
-quick_main!(run);
-fn run() -> Result<()> {
+fn main() -> Fallible<()> {
     let parser = clap_app!(promptly =>
         (version: "0.1")
         (author: "Terrence Cole <terrence.d.cole@gmail.com>")
@@ -61,18 +56,13 @@ fn run() -> Result<()> {
     let args = parser.get_matches();
 
     let timed = args.occurrences_of("timed") > 0;
-    let columns = args.value_of("width")
-        .unwrap()
-        .parse::<usize>()
-        .chain_err(|| "expected positive integer width")?;
-    let prior_runtime_seconds = args.value_of("time")
-        .unwrap()
-        .parse::<i32>()
-        .chain_err(|| "expected integer time")?;
+    let columns = args.value_of("width").unwrap().parse::<usize>()?;
+    let prior_runtime_seconds = args.value_of("time").unwrap().parse::<i32>()?;
 
-    let border_template = match args.value_of("status").unwrap() == "0" {
-        true => Span::new("").foreground(Color::Blue).bold(),
-        false => Span::new("").foreground(Color::Red).bold(),
+    let border_template = if args.value_of("status").unwrap() == "0" {
+        Span::new("").foreground(Color::Blue).bold()
+    } else {
+        Span::new("").foreground(Color::Red).bold()
     };
     let prompt_template = Span::new("").foreground(Color::Green).dimmed();
     let prior_runtime = format_run_time(prior_runtime_seconds);
@@ -81,13 +71,14 @@ fn run() -> Result<()> {
     let mut right_floats = Vec::<Div>::new();
 
     let t1 = get_time(timed);
-    let path_div = format_path(args.value_of("alternate_home"))
-        .chain_err(|| "failed to format the path")?;
+    let path_div = format_path(args.value_of("alternate_home"))?;
     left_floats.push(path_div);
 
     let t2 = get_time(timed);
     let git_branch = find_git_branch();
-    git_branch.map(|branch| left_floats.push(format_git_branch(&branch)));
+    if let Some(branch) = git_branch {
+        left_floats.push(format_git_branch(&branch));
+    }
 
     let t3 = get_time(timed);
     right_floats.push(format_date_time());
@@ -120,28 +111,29 @@ fn run() -> Result<()> {
         println!("Writing:       {}", t7.unwrap().to(t8.unwrap()));
         println!("Total:         {}", t1.unwrap().to(t8.unwrap()));
     }
-    return Ok(());
+    Ok(())
 }
 
 fn get_time(timed: bool) -> Option<PreciseTime> {
-    match timed {
-        true => Some(PreciseTime::now()),
-        false => None,
+    if timed {
+        return Some(PreciseTime::now());
     }
+    None
 }
 
-fn format_path(alt_home: Option<&str>) -> Result<Div> {
-    let path = current_dir().chain_err(|| "failed to getcwd")?;
+fn format_path(alt_home: Option<&str>) -> Fallible<Div> {
+    let path = current_dir()?;
     let raw_path_str = path.to_str().unwrap_or("<error>");
     let home_str = match alt_home {
-        None => var("HOME").chain_err(|| "failed to get HOME")?,
+        None => var("HOME")?,
         Some(alt) => alt.to_owned(),
     };
-    let path_str = match raw_path_str.starts_with(&home_str) {
-        true => raw_path_str.replace(&home_str, "~"),
-        false => raw_path_str.to_owned(),
+    let path_str = if raw_path_str.starts_with(&home_str) {
+        raw_path_str.replace(&home_str, "~")
+    } else {
+        raw_path_str.to_owned()
     };
-    return Ok(Div::new(Span::new(&path_str).bold()));
+    Ok(Div::new(Span::new(&path_str).bold()))
 }
 
 fn format_run_time(t: i32) -> Div {
@@ -154,36 +146,42 @@ fn format_run_time(t: i32) -> Div {
     let mut s = t;
     if s > 3600 {
         let h = s / 3600;
-        s = s - 3600 * h;
-        out.add_span(Span::new(&format!("{}", h))
-                         .foreground(Color::Purple)
-                         .bold());
+        s -= 3600 * h;
+        out.add_span(
+            Span::new(&format!("{}", h))
+                .foreground(Color::Purple)
+                .bold(),
+        );
         out.add_span(Span::new("h").foreground(Color::Purple).dimmed());
     }
     if s > 60 {
         let m = s / 60;
-        s = s - 60 * m;
-        out.add_span(Span::new(&format!("{}", m))
-                         .foreground(Color::Purple)
-                         .bold());
+        s -= 60 * m;
+        out.add_span(
+            Span::new(&format!("{}", m))
+                .foreground(Color::Purple)
+                .bold(),
+        );
         out.add_span(Span::new("m").foreground(Color::Purple).dimmed());
     }
     if s > 0 {
-        out.add_span(Span::new(&format!("{}", s))
-                         .foreground(Color::Purple)
-                         .bold());
+        out.add_span(
+            Span::new(&format!("{}", s))
+                .foreground(Color::Purple)
+                .bold(),
+        );
         out.add_span(Span::new("s").foreground(Color::Purple).dimmed());
     }
-    return out;
+    out
 }
 
 fn find_git_branch() -> Option<String> {
-    for path in vec![".", "..", "../..", "../../.."] {
+    for path in &[".", "..", "../..", "../../.."] {
         if let Some(branch) = find_git_branch_at(path) {
             return Some(branch);
         }
     }
-    return None;
+    None
 }
 
 fn find_git_branch_at(path: &'static str) -> Option<String> {
@@ -195,11 +193,12 @@ fn find_git_branch_at(path: &'static str) -> Option<String> {
         Ok(head) => head,
         Err(_) => return None,
     };
-    return Some(match head.shorthand() {
-                        Some(tgt) => tgt,
-                        None => "(detached)",
-                    }
-                    .to_owned());
+    Some(
+        match head.shorthand() {
+            Some(tgt) => tgt,
+            None => "(detached)",
+        }.to_owned(),
+    )
 }
 
 fn format_git_branch(branch: &str) -> Div {
@@ -209,7 +208,7 @@ fn format_git_branch(branch: &str) -> Div {
     div.add_span(Span::new("{").bold());
     div.add_span(Span::new(branch).foreground(Color::Yellow).bold());
     div.add_span(Span::new("}").bold());
-    return div;
+    div
 }
 
 fn format_date_time() -> Div {
@@ -222,7 +221,7 @@ fn format_date_time() -> Div {
     div.add_span(Span::new(&current_time.format("%M").to_string()).foreground(Color::Yellow));
     div.add_span(Span::new(":").foreground(Color::White).dimmed());
     div.add_span(Span::new(&current_time.format("%S").to_string()).foreground(Color::Yellow));
-    return div;
+    div
 }
 
 fn format_user_host() -> Div {
@@ -242,16 +241,18 @@ fn format_user_host() -> Div {
     let mut div = Div::new(span);
     div.add_span(Span::new("@").foreground(Color::White).dimmed());
     div.add_span(Span::new(&hostname).foreground(Color::Green).dimmed());
-    return div;
+    div
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::Layout;
+    use super::*;
 
     fn format_runs(runs: &Vec<Run>) -> Vec<String> {
-        runs.iter().map(|r| r.format(false)).collect::<Vec<String>>()
+        runs.iter()
+            .map(|r| r.format(false))
+            .collect::<Vec<String>>()
     }
 
     fn do_test(width: usize, dt_str: &str, left: Vec<&str>, right: Vec<&str>, result: Vec<&str>) {
@@ -261,7 +262,8 @@ mod tests {
             .use_safe_corners(true)
             .escape_for_readline(false);
         let dt = Div::new(Span::new(dt_str));
-        let l = left.iter()
+        let l = left
+            .iter()
             .map(|s| Div::new(Span::new(s)))
             .collect::<Vec<Div>>();
         let r = right
@@ -298,99 +300,131 @@ mod tests {
 
     #[test]
     fn drop_left_2_1() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCC"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_1_stretch() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_1_shrink() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CC"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CC ─────────┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CC"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CC ─────────┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCC", "DDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCC", "DDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2_shrink() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CC", "DDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CC", "DDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2_stretch() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC", "DDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2_stretch_more() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬────────┬┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
-                     "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬────────┬┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
+                "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_3_2_stretch_more() {
-        do_test(29,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬─┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
-                     "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
-                     "├ DDDDD ──────┘              ",
-                     "└➤ "]);
+        do_test(
+            29,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬─┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
+                "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
+                "├ DDDDD ──────┘              ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
