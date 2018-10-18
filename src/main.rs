@@ -31,7 +31,7 @@ mod errors {
 mod layout;
 mod render;
 
-use layout::{Color, Div, Span, Layout, LayoutOptions};
+use layout::{Color, Div, Layout, LayoutOptions, Span};
 use render::Run;
 
 use chrono::Local;
@@ -61,11 +61,13 @@ fn run() -> Result<()> {
     let args = parser.get_matches();
 
     let timed = args.occurrences_of("timed") > 0;
-    let columns = args.value_of("width")
+    let columns = args
+        .value_of("width")
         .unwrap()
         .parse::<usize>()
         .chain_err(|| "expected positive integer width")?;
-    let prior_runtime_seconds = args.value_of("time")
+    let prior_runtime_seconds = args
+        .value_of("time")
         .unwrap()
         .parse::<i32>()
         .chain_err(|| "expected integer time")?;
@@ -81,8 +83,8 @@ fn run() -> Result<()> {
     let mut right_floats = Vec::<Div>::new();
 
     let t1 = get_time(timed);
-    let path_div = format_path(args.value_of("alternate_home"))
-        .chain_err(|| "failed to format the path")?;
+    let path_div =
+        format_path(args.value_of("alternate_home")).chain_err(|| "failed to format the path")?;
     left_floats.push(path_div);
 
     let t2 = get_time(timed);
@@ -155,23 +157,29 @@ fn format_run_time(t: i32) -> Div {
     if s > 3600 {
         let h = s / 3600;
         s = s - 3600 * h;
-        out.add_span(Span::new(&format!("{}", h))
-                         .foreground(Color::Purple)
-                         .bold());
+        out.add_span(
+            Span::new(&format!("{}", h))
+                .foreground(Color::Purple)
+                .bold(),
+        );
         out.add_span(Span::new("h").foreground(Color::Purple).dimmed());
     }
     if s > 60 {
         let m = s / 60;
         s = s - 60 * m;
-        out.add_span(Span::new(&format!("{}", m))
-                         .foreground(Color::Purple)
-                         .bold());
+        out.add_span(
+            Span::new(&format!("{}", m))
+                .foreground(Color::Purple)
+                .bold(),
+        );
         out.add_span(Span::new("m").foreground(Color::Purple).dimmed());
     }
     if s > 0 {
-        out.add_span(Span::new(&format!("{}", s))
-                         .foreground(Color::Purple)
-                         .bold());
+        out.add_span(
+            Span::new(&format!("{}", s))
+                .foreground(Color::Purple)
+                .bold(),
+        );
         out.add_span(Span::new("s").foreground(Color::Purple).dimmed());
     }
     return out;
@@ -195,11 +203,12 @@ fn find_git_branch_at(path: &'static str) -> Option<String> {
         Ok(head) => head,
         Err(_) => return None,
     };
-    return Some(match head.shorthand() {
-                        Some(tgt) => tgt,
-                        None => "(detached)",
-                    }
-                    .to_owned());
+    return Some(
+        match head.shorthand() {
+            Some(tgt) => tgt,
+            None => "(detached)",
+        }.to_owned(),
+    );
 }
 
 fn format_git_branch(branch: &str) -> Div {
@@ -247,11 +256,13 @@ fn format_user_host() -> Div {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::Layout;
+    use super::*;
 
     fn format_runs(runs: &Vec<Run>) -> Vec<String> {
-        runs.iter().map(|r| r.format(false)).collect::<Vec<String>>()
+        runs.iter()
+            .map(|r| r.format(false))
+            .collect::<Vec<String>>()
     }
 
     fn do_test(width: usize, dt_str: &str, left: Vec<&str>, right: Vec<&str>, result: Vec<&str>) {
@@ -261,7 +272,8 @@ mod tests {
             .use_safe_corners(true)
             .escape_for_readline(false);
         let dt = Div::new(Span::new(dt_str));
-        let l = left.iter()
+        let l = left
+            .iter()
             .map(|s| Div::new(Span::new(s)))
             .collect::<Vec<Div>>();
         let r = right
@@ -298,99 +310,131 @@ mod tests {
 
     #[test]
     fn drop_left_2_1() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCC"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_1_stretch() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_1_shrink() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CC"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CC ─────────┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CC"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CC ─────────┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCC", "DDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCC", "DDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2_shrink() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CC", "DDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CC", "DDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2_stretch() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC", "DDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
-                     "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬──┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
+                "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_2_2_stretch_more() {
-        do_test(30,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬────────┬┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
-                     "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
-                     "└➤ "]);
+        do_test(
+            30,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬────────┬┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
+                "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_left_3_2_stretch_more() {
-        do_test(29,
-                "TTT",
-                vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬─┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
-                     "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
-                     "├ DDDDD ──────┘              ",
-                     "└➤ "]);
+        do_test(
+            29,
+            "TTT",
+            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            vec!["DDDD", "EEEEEEEE"],
+            vec![
+                "┬──────┬──────┬─┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
+                "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
+                "├ DDDDD ──────┘              ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]

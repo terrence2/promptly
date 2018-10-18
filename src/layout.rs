@@ -15,9 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+use std;
 use std::cmp;
 use std::collections::HashSet;
-use std;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Color {
@@ -158,20 +158,29 @@ impl Span {
         if self.foreground.is_none() && self.background.is_none() && self.styles.len() == 0 {
             return "".to_owned();
         }
-        let mut style = self.styles
+        let mut style = self
+            .styles
             .iter()
             .map(|s| format!("{}", s.encode()))
             .collect::<Vec<String>>();
-        style.append(&mut self.background
-                              .iter()
-                              .map(|c| format!("{}", c.encode_foreground()))
-                              .collect::<Vec<String>>());
-        style.append(&mut self.foreground
-                              .iter()
-                              .map(|c| format!("{}", c.encode_foreground()))
-                              .collect::<Vec<String>>());
-        return Self::make_readline_safe(&("\x1B[".to_owned() + &style.join(";") + "m"),
-                                        escape_for_readline);
+        style.append(
+            &mut self
+                .background
+                .iter()
+                .map(|c| format!("{}", c.encode_foreground()))
+                .collect::<Vec<String>>(),
+        );
+        style.append(
+            &mut self
+                .foreground
+                .iter()
+                .map(|c| format!("{}", c.encode_foreground()))
+                .collect::<Vec<String>>(),
+        );
+        return Self::make_readline_safe(
+            &("\x1B[".to_owned() + &style.join(";") + "m"),
+            escape_for_readline,
+        );
     }
 
     pub fn make_readline_safe(s: &str, escape_for_readline: bool) -> String {
@@ -193,7 +202,9 @@ impl Div {
     }
 
     pub fn new_empty() -> Self {
-        Div { children: Vec::new() }
+        Div {
+            children: Vec::new(),
+        }
     }
 
     pub fn add_span(&mut self, span: Span) {
@@ -297,14 +308,15 @@ pub struct Layout {
 }
 
 impl Layout {
-    fn new(left_extent: usize,
-           right_extent: usize,
-           height: usize,
-           left_floats: Vec<Div>,
-           right_floats: Vec<Div>,
-           prior_runtime: Div,
-           options: &LayoutOptions)
-           -> Self {
+    fn new(
+        left_extent: usize,
+        right_extent: usize,
+        height: usize,
+        left_floats: Vec<Div>,
+        right_floats: Vec<Div>,
+        prior_runtime: Div,
+        options: &LayoutOptions,
+    ) -> Self {
         Layout {
             left_extent: left_extent,
             right_extent: right_extent,
@@ -375,12 +387,12 @@ impl Layout {
     //
     //     ├ ┤ ┬ ┴
     //
-    pub fn build(prior_dt: Div,
-                 left_floats: Vec<Div>,
-                 right_floats: Vec<Div>,
-                 options: &LayoutOptions)
-                 -> Option<Layout> {
-
+    pub fn build(
+        prior_dt: Div,
+        left_floats: Vec<Div>,
+        right_floats: Vec<Div>,
+        options: &LayoutOptions,
+    ) -> Option<Layout> {
         // MEASUREMENTS:
         //
         //  v------------------- columns ---------------------v
@@ -452,13 +464,15 @@ impl Layout {
                     println!("    h_min_l: {}", h_min_left);
                 }
                 if h_max_right >= h_min_left {
-                    return Some(Layout::new(w_min_left,
-                                            w_max_right,
-                                            cmp::max(h_min_left, h_max_right),
-                                            left_floats,
-                                            right_floats,
-                                            prior_dt,
-                                            options));
+                    return Some(Layout::new(
+                        w_min_left,
+                        w_max_right,
+                        cmp::max(h_min_left, h_max_right),
+                        left_floats,
+                        right_floats,
+                        prior_dt,
+                        options,
+                    ));
                 }
             }
             None => {
@@ -470,8 +484,8 @@ impl Layout {
         };
 
         // If the maximal right did not allow the left side to fit well, re-try with a minimal right.
-        let (w_min_right, h_min_right) = Self::find_minimal_width(&right_floats,
-                                                                  2 + prior_dt.width());
+        let (w_min_right, h_min_right) =
+            Self::find_minimal_width(&right_floats, 2 + prior_dt.width());
         if options.verbose {
             println!("Pass3:");
             println!("    bump:    {}", 2 + prior_dt.width());
@@ -498,13 +512,15 @@ impl Layout {
             println!("    h_max_l: {}", h_max_left);
         }
 
-        return Some(Layout::new(w_max_left,
-                                w_min_right,
-                                cmp::max(h_max_left, h_min_right),
-                                left_floats,
-                                right_floats,
-                                prior_dt,
-                                options));
+        return Some(Layout::new(
+            w_max_left,
+            w_min_right,
+            cmp::max(h_max_left, h_min_right),
+            left_floats,
+            right_floats,
+            prior_dt,
+            options,
+        ));
     }
 
     fn split_for_width(width: usize, mut floats: Vec<Div>) -> Vec<Vec<Div>> {
@@ -567,10 +583,11 @@ impl Layout {
         return (min_columns, row_count + 1);
     }
 
-    fn pack_into_width(width_0: usize,
-                       width_n: usize,
-                       floats: &Vec<Div>)
-                       -> Option<(usize, usize)> {
+    fn pack_into_width(
+        width_0: usize,
+        width_n: usize,
+        floats: &Vec<Div>,
+    ) -> Option<(usize, usize)> {
         let mut pack_width = 0;
         let mut pack_height = 0;
 
