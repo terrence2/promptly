@@ -227,7 +227,7 @@ fn format_date_time() -> Div {
 fn format_user_host() -> Div {
     let username = match get_current_username() {
         None => "<unknown_user>".to_owned(),
-        Some(un) => un,
+        Some(un) => un.into_string().unwrap_or("<unknown_user>".into()),
     };
     let hostname = match get_hostname() {
         None => "<unknown_host>".to_owned(),
