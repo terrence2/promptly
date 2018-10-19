@@ -355,6 +355,13 @@ impl Run {
                     row.repeat_border('─', to_end);
                 }
             }
+
+            if i == 0 && layout.right_by_row.is_empty() {
+                row.add_border("└");
+                let to_end = layout.width - row.offset;
+                row.repeat_border('─', to_end);
+            }
+
             runs.push(row);
         }
 

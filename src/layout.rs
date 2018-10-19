@@ -68,7 +68,7 @@ impl Style {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Span {
     pub content: String,
     foreground: Option<Color>,
@@ -192,7 +192,7 @@ impl Span {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Div {
     children: Vec<Span>,
 }
@@ -501,27 +501,41 @@ impl Layout {
         // ├ ? ┘                              ├ FFFF ───┴─────
         //                                    └ EEEEEEEEEEEEE
         let maximal_left = inner_width - w_min_right - 1;
-        let (w_max_left, h_max_left) =
-            match Self::pack_into_width(maximal_left, maximal_left, &left_floats) {
-                None => return None,
-                Some(p) => p,
-            };
-        if options.verbose {
-            println!("Pass4:");
-            println!("    maximal_left: {}", maximal_left);
-            println!("    w_max_l: {}", w_max_left);
-            println!("    h_max_l: {}", h_max_left);
+        match Self::pack_into_width(maximal_left, maximal_left, &left_floats) {
+            Some((w_max_left, h_max_left)) => {
+                if options.verbose {
+                    println!("Pass4:");
+                    println!("    maximal_left: {}", maximal_left);
+                    println!("    w_max_l: {}", w_max_left);
+                    println!("    h_max_l: {}", h_max_left);
+                }
+                return Some(Layout::new(
+                    w_max_left,
+                    w_min_right,
+                    cmp::max(h_max_left, h_min_right),
+                    left_floats,
+                    right_floats,
+                    prior_dt,
+                    options,
+                ));
+            }
+            None => {
+                if options.verbose {
+                    println!("Pass4:");
+                    println!("    left does not fit into: {}", maximal_left);
+                }
+            }
+        };
+
+        // Re-arrange the boxes such that everything is packed on the left.
+        if !right_floats.is_empty() {
+            let mut pile = Vec::new();
+            pile.append(&mut right_floats.clone());
+            pile.append(&mut left_floats.clone());
+            return Layout::build(prior_dt, pile, Vec::new(), options);
         }
 
-        Some(Layout::new(
-            w_max_left,
-            w_min_right,
-            cmp::max(h_max_left, h_min_right),
-            left_floats,
-            right_floats,
-            prior_dt,
-            options,
-        ))
+        None
     }
 
     fn split_for_width(width: usize, mut floats: Vec<Div>) -> Vec<Vec<Div>> {
