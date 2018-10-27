@@ -16,7 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 extern crate chrono;
-#[macro_use]
 extern crate clap;
 extern crate failure;
 extern crate git2;
@@ -31,6 +30,7 @@ use layout::{Color, Div, Layout, LayoutOptions, Span};
 use render::Run;
 
 use chrono::Local;
+use clap::clap_app;
 use failure::Fallible;
 use git2::Repository;
 use hostname::get_hostname;
@@ -227,7 +227,7 @@ fn format_date_time() -> Div {
 fn format_user_host() -> Div {
     let username = match get_current_username() {
         None => "<unknown_user>".to_owned(),
-        Some(un) => un.into_string().unwrap_or("<unknown_user>".into()),
+        Some(un) => un.into_string().unwrap_or_else(|_| "<unknown_user>".into()),
     };
     let hostname = match get_hostname() {
         None => "<unknown_host>".to_owned(),
