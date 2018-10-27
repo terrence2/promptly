@@ -8,8 +8,8 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - promptly-{{ checksum "Cargo.toml" }}
-            - promptly-
+            - promptly-test-{{ checksum "Cargo.toml" }}
+            - promptly-test-
       - run:
           name: Prepare
           command: |
@@ -18,7 +18,7 @@ jobs:
             cargo build
             cargo build --release
       - save_cache:
-          key: promptly-{{ checksum "Cargo.toml" }}
+          key: promptly-test-{{ checksum "Cargo.toml" }}
           paths:
             - /promptly/target
       - run:
@@ -30,9 +30,38 @@ jobs:
       - run:
           name: 'Test Release'
           command: cargo test --release
+  
+  publish:
+    working-directory: /promptly
+    docker:
+      - image: rust:latest
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - promptly-package-{{ checksum "Cargo.toml" }}
+            - promptly-package-
+      - run:
+          name: Package
+          command: cargo package
+      - save_cache:
+          key: promptly-package-{{ checksum "Cargo.toml" }}
+          paths:
+            - /promptly/target
+      - run:
+          name: Publish
+          command: |
+            cargo login <>
+            cargo publish
 
 workflows:
   version: 2
   test:
     jobs:
       - test
+      - publish:
+          requires:
+            - test
+          filters:
+            branches:
+              only: master

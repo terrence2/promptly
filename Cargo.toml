@@ -10,7 +10,10 @@ license = "GPL-3.0-or-later"
 documentation = "https://github.com/terrence2/promptly.git"
 homepage = "https://github.com/terrence2/promptly.git"
 repository = "https://github.com/terrence2/promptly.git"
-publish = false
+publish = true
+exclude = [
+    ".circleci/*",
+]
 
 [dependencies]
 failure = "0.1.2"
