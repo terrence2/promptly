@@ -249,13 +249,13 @@ mod tests {
     use super::Layout;
     use super::*;
 
-    fn format_runs(runs: &Vec<Run>) -> Vec<String> {
+    fn format_runs(runs: &[Run]) -> Vec<String> {
         runs.iter()
             .map(|r| r.format(false))
             .collect::<Vec<String>>()
     }
 
-    fn do_test(width: usize, dt_str: &str, left: Vec<&str>, right: Vec<&str>, result: Vec<&str>) {
+    fn do_test(width: usize, dt_str: &str, left: &[&str], right: &[&str], result: &[&str]) {
         let options = LayoutOptions::new()
             .width(width)
             .use_color(false)
@@ -282,22 +282,22 @@ mod tests {
     fn single_line() {
         do_test(80,
                 "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEE"],
-                vec!["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┴ EEEE ┴─────",
-                     "└➤ "]);
+                &["AAAA", "BBBB", "CCCC"],
+                &["DDDD", "EEEE"],
+                &["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
+                  "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┴ EEEE ┴─────",
+                  "└➤ "]);
     }
 
     #[test]
     fn single_line_min() {
         do_test(43,
                 "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEE"],
-                vec!["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┴ EEEE ┴─────",
-                     "└➤ "]);
+                &["AAAA", "BBBB", "CCCC"],
+                &["DDDD", "EEEE"],
+                &["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
+                  "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┴ EEEE ┴─────",
+                  "└➤ "]);
     }
 
     #[test]
@@ -305,9 +305,9 @@ mod tests {
         do_test(
             30,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCC"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬──────┬──┬──────┐ TTT ",
                 "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                 "├ CCCC ───────┘  └ EEEEEEEE ┘ ",
@@ -321,9 +321,9 @@ mod tests {
         do_test(
             30,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCCC"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCCC"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬──────┬──┬──────┐ TTT ",
                 "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                 "├ CCCCC ──────┘  └ EEEEEEEE ┘ ",
@@ -337,9 +337,9 @@ mod tests {
         do_test(
             30,
             "TTT",
-            vec!["AAAA", "BBBB", "CC"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CC"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬──────┬──┬──────┐ TTT ",
                 "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                 "├ CC ─────────┘  └ EEEEEEEE ┘ ",
@@ -353,9 +353,9 @@ mod tests {
         do_test(
             30,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCC", "DDDD"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCC", "DDDD"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬──────┬──┬──────┐ TTT ",
                 "├ AAAA ┼ BBBB ┤  ├ DDDD ┴───┬─",
                 "├ CCCC ┴ DDDD ┘  └ EEEEEEEE ┘ ",
@@ -369,9 +369,9 @@ mod tests {
         do_test(
             30,
             "TTT",
-            vec!["AAAA", "BBBB", "CC", "DDDD"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CC", "DDDD"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬──────┬──┬──────┐ TTT ",
                 "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                 "├ CC ─ DDDD ──┘  └ EEEEEEEE ┘ ",
@@ -385,9 +385,9 @@ mod tests {
         do_test(
             30,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCCC", "DDD"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCCC", "DDD"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬──────┬──┬──────┐ TTT ",
                 "├ AAAA ┴ BBBB ┤  ├ DDDD ┴───┬─",
                 "├ CCCCC ─ DDD ┘  └ EEEEEEEE ┘ ",
@@ -401,9 +401,9 @@ mod tests {
         do_test(
             30,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬────────┬┬──────┐ TTT ",
                 "├ AAAA ┴ BBBB ──┤├ DDDD ┴───┬─",
                 "├ CCCCC ─ DDDDD ┘└ EEEEEEEE ┘ ",
@@ -417,9 +417,9 @@ mod tests {
         do_test(
             29,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────┬──────┬─┬──────┐ TTT ",
                 "├ AAAA ┴ BBBB ┤ ├ DDDD ┴───┬─",
                 "├ CCCCC ──────┤ └ EEEEEEEE ┘ ",
@@ -434,9 +434,9 @@ mod tests {
         do_test(
             23,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬───────┬─┬──────┐ TTT ",
                 "├ AAAA ─┤ ├ DDDD ┴───┬─",
                 "├ BBBB ─┤ └ EEEEEEEE ┘ ",
@@ -452,9 +452,9 @@ mod tests {
         do_test(
             20,
             "TTT",
-            vec!["AAAA", "BBBB", "CCCCC", "DDDDD"],
-            vec!["DDDD", "EEEEEEEE"],
-            vec![
+            &["AAAA", "BBBB", "CCCCC", "DDDDD"],
+            &["DDDD", "EEEEEEEE"],
+            &[
                 "┬──────────┬──┐ TTT ",
                 "├ DDDD ────┤  └─────",
                 "├ EEEEEEEE ┤        ",
@@ -471,59 +471,59 @@ mod tests {
     fn drop_right_long_short() {
         do_test(42,
                 "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDDDDDD", "EEEE"],
-                vec!["┬──────┬──────┬──────┬───┬──────────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
-                     "│                        └ EEEE ────┘     ",
-                     "└➤ "]);
+                &["AAAA", "BBBB", "CCCC"],
+                &["DDDDDDDD", "EEEE"],
+                &["┬──────┬──────┬──────┬───┬──────────┐ TTT ",
+                  "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
+                  "│                        └ EEEE ────┘     ",
+                  "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long() {
         do_test(42,
                 "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEEEEEE"],
-                vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
-                     "│                            └ EEEEEEEE ┘ ",
-                     "└➤ "]);
+                &["AAAA", "BBBB", "CCCC"],
+                &["DDDD", "EEEEEEEE"],
+                &["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                  "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
+                  "│                            └ EEEEEEEE ┘ ",
+                  "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long_stretch1() {
         do_test(42,
                 "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEEEEEEE"],
-                vec!["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
-                     "│                            └ EEEEEEEEE ┘",
-                     "└➤ "]);
+                &["AAAA", "BBBB", "CCCC"],
+                &["DDDD", "EEEEEEEEE"],
+                &["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                  "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
+                  "│                            └ EEEEEEEEE ┘",
+                  "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long_stretch2() {
         do_test(42,
                 "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEEEEEEEE"],
-                vec!["┬──────┬──────┬──────┬──────┬───────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
-                     "│                           └ EEEEEEEEEE ┘",
-                     "└➤ "]);
+                &["AAAA", "BBBB", "CCCC"],
+                &["DDDD", "EEEEEEEEEE"],
+                &["┬──────┬──────┬──────┬──────┬───────┐ TTT ",
+                  "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
+                  "│                           └ EEEEEEEEEE ┘",
+                  "└➤ "]);
     }
 
     #[test]
     fn drop_right_short_long_stretch4() {
         do_test(42,
                 "TTT",
-                vec!["AAAA", "BBBB", "CCCC"],
-                vec!["DDDD", "EEEEEEEEEEEE"],
-                vec!["┬──────┬──────┬──────┬────┬─────────┐ TTT ",
-                     "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
-                     "│                         └ EEEEEEEEEEEE ┘",
-                     "└➤ "]);
+                &["AAAA", "BBBB", "CCCC"],
+                &["DDDD", "EEEEEEEEEEEE"],
+                &["┬──────┬──────┬──────┬────┬─────────┐ TTT ",
+                  "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
+                  "│                         └ EEEEEEEEEEEE ┘",
+                  "└➤ "]);
     }
 }
