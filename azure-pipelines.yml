@@ -1,0 +1,15 @@
+pool:
+  vmImage: 'Ubuntu 16.04'
+
+variables:
+  imageName: 'promptly:$(build.buildId)'
+
+steps:
+- script: docker build -f Dockerfile -t $(imageName) .
+  displayName: 'docker build'
+- script: docker run --rm -t $(imageName) cargo clippy --all-targets --all-features -- -D warnings
+  displayName: 'run clippy'
+- script: docker run --rm -t $(imageName) cargo test
+  displayName: 'test debug build'
+- script: docker run --rm -t $(imageName) cargo test --release
+  displayName: 'test release build'
