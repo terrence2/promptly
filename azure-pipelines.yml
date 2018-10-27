@@ -13,3 +13,4 @@ steps:
   displayName: 'test debug build'
 - script: docker run --rm -t $(imageName) cargo test --release
   displayName: 'test release build'
+# poke our script
