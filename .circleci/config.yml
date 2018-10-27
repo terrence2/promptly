@@ -1,10 +1,18 @@
 version: 2
 jobs:
   test:
+    working-directory: ~/promptly
     docker:
       - image: rust:latest
     steps:
       - checkout
+      - run:
+          name: Prepare
+          command: |
+            rustup component add clippy-preview
+            cargo clippy
+            cargo build
+            cargo build --release
 # jobs:
 #   test:
 #     working-directory: /promptly
