@@ -30,3 +30,9 @@ jobs:
     - run:
         name: Test Release
         command: cargo test --release
+
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test
