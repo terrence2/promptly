@@ -15,9 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-use layout::{Div, Layout, Span};
-
-use std;
+use crate::layout::{Div, Layout, Span};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Format {
@@ -36,7 +34,6 @@ pub struct Run {
     last_format: Format,
     use_color: bool,
     use_safe_corners: bool,
-    clear_format: String,
     border_format: String,
     prompt_format: String,
 }
@@ -51,7 +48,6 @@ impl Run {
             last_format: Format::Clear,
             use_color: false,
             use_safe_corners: false,
-            clear_format: "".to_owned(),
             border_format: "".to_owned(),
             prompt_format: "".to_owned(),
         }]
@@ -60,15 +56,12 @@ impl Run {
     fn new(width: usize, layout: &Layout) -> Self {
         Run {
             width,
-            cells: std::iter::repeat(' ').take(width).collect::<Vec<char>>(),
-            formats: std::iter::repeat(None)
-                .take(width)
-                .collect::<Vec<Option<Format>>>(),
+            cells: std::iter::repeat_n(' ', width).collect::<Vec<char>>(),
+            formats: std::iter::repeat_n(None, width).collect::<Vec<Option<Format>>>(),
             offset: 0,
             last_format: Format::Clear,
             use_color: layout.use_color,
             use_safe_corners: layout.use_safe_corners,
-            clear_format: Span::get_reset_style(layout.escape_for_readline),
             border_format: layout.border_format.clone(),
             prompt_format: layout.prompt_format.clone(),
         }
@@ -98,19 +91,11 @@ impl Run {
     }
 
     fn repeat(&mut self, c: char, cnt: usize) {
-        self.add(
-            &std::iter::repeat(c.to_string())
-                .take(cnt)
-                .collect::<String>(),
-        );
+        self.add(&std::iter::repeat_n(c.to_string(), cnt).collect::<String>());
     }
 
     fn repeat_border(&mut self, c: char, cnt: usize) {
-        self.add_border(
-            &std::iter::repeat(c.to_string())
-                .take(cnt)
-                .collect::<String>(),
-        );
+        self.add_border(&std::iter::repeat_n(c.to_string(), cnt).collect::<String>());
     }
 
     fn add_div(&mut self, div: &Div, escape_for_readline: bool) {
@@ -127,20 +112,10 @@ impl Run {
     }
 
     fn is_border_at(&self, offset: usize) -> bool {
-        match self.cells[offset] {
-            '─' => true,
-            '│' => true,
-            '┼' => true,
-            '┌' => true,
-            '└' => true,
-            '┐' => true,
-            '┘' => true,
-            '├' => true,
-            '┤' => true,
-            '┬' => true,
-            '┴' => true,
-            _ => false,
-        }
+        matches!(
+            self.cells[offset],
+            '─' | '│' | '┼' | '┌' | '└' | '┐' | '┘' | '├' | '┤' | '┬' | '┴'
+        )
     }
 
     fn find_time_corner_border(&self, start: usize) -> Option<usize> {
@@ -222,7 +197,7 @@ impl Run {
                         Format::Clear => {}
                         Format::Border => out += &self.border_format,
                         Format::Prompt => out += &self.prompt_format,
-                        Format::Span(ref s) => out += &s,
+                        Format::Span(s) => out += s,
                     }
                 }
             }

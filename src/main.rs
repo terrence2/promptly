@@ -15,14 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-extern crate chrono;
-extern crate clap;
-extern crate failure;
-extern crate git2;
-extern crate hostname;
-extern crate time;
-extern crate users;
-
 mod layout;
 mod render;
 
@@ -30,36 +22,74 @@ use layout::{Color, Div, Layout, LayoutOptions, Span};
 use render::Run;
 
 use chrono::Local;
-use clap::clap_app;
+use clap::{
+    Parser,
+    builder::{Styles, styling::AnsiColor},
+};
 use failure::Fallible;
 use git2::Repository;
-use hostname::get_hostname;
-use std::env::{current_dir, var};
-use time::PreciseTime;
+use hostname::get;
+use std::{
+    env::{current_dir, var},
+    path::PathBuf,
+    time::Instant,
+};
 use users::{get_current_username, get_effective_uid};
 
+const STYLES: Styles = Styles::styled()
+    .header(AnsiColor::Yellow.on_default())
+    .usage(AnsiColor::Yellow.on_default())
+    .literal(AnsiColor::Green.on_default())
+    .placeholder(AnsiColor::Cyan.on_default());
+
+#[derive(Parser)]
+#[command(version, about, styles = STYLES)]
+struct Args {
+    /// Prior command exit code
+    #[clap(short, long, value_name = "CODE")]
+    status: String,
+
+    /// Prior command run time
+    #[clap(short, long, value_name = "SECONDS")]
+    time: i32,
+
+    /// The terminal width to render with
+    #[clap(short, long, value_name = "COLUMNS")]
+    width: usize,
+
+    /// Use a non-utf8 arrow character
+    #[clap(long)]
+    safe_arrow: bool,
+
+    /// Use normal box corners instead of round corners
+    #[clap(long)]
+    safe_corners: bool,
+
+    /// Skip the readline escaping we do by default
+    #[clap(long)]
+    no_readline: bool,
+
+    /// Specify a non-$HOME for ~ home folding
+    #[clap(long, value_name = "PATH")]
+    alternate_home: Option<PathBuf>,
+
+    /// Print out timings after the prompt
+    #[clap(long)]
+    show_timings: bool,
+
+    /// Sets the level of debugging information
+    #[clap(short, long)]
+    verbose: bool,
+}
+
 fn main() -> Fallible<()> {
-    let parser = clap_app!(promptly =>
-        (version: "0.1")
-        (author: "Terrence Cole <terrence.d.cole@gmail.com>")
-        (about: "Shows a shell prompt, quickly.")
-        (@arg status: -s --status <CODE> "Prior command exit code.")
-        (@arg time: -t --time <SECONDS> "Prior command run time.")
-        (@arg width: -w --width <COLUMNS> "The terminal width to use.")
-        (@arg safe_arrow: --("safe-arrow") "Use a non-utf8 arrow character.")
-        (@arg safe_corners: --("safe-corners") "Use normal box corners instead of round corners.")
-        (@arg no_readline: --("no-readline") "Skip the readline escaping we do by default.")
-        (@arg alternate_home: --("alternate-home") <PATH> !required "Specify a non-$HOME, home folding.")
-        (@arg timed: --("show-timings") "Print out timings after the prompt.")
-        (@arg verbose: -v --verbose "Sets the level of debugging information.")
-    );
-    let args = parser.get_matches();
+    let args = Args::parse();
 
-    let timed = args.occurrences_of("timed") > 0;
-    let columns = args.value_of("width").unwrap().parse::<usize>()?;
-    let prior_runtime_seconds = args.value_of("time").unwrap().parse::<i32>()?;
+    let timed = args.show_timings;
+    let columns = args.width;
+    let prior_runtime_seconds = args.time;
 
-    let border_template = if args.value_of("status").unwrap() == "0" {
+    let border_template = if args.status == "0" {
         Span::new("").foreground(Color::Blue).bold()
     } else {
         Span::new("").foreground(Color::Red).bold()
@@ -71,7 +101,7 @@ fn main() -> Fallible<()> {
     let mut right_floats = Vec::<Div>::new();
 
     let t1 = get_time(timed);
-    let path_div = format_path(args.value_of("alternate_home"))?;
+    let path_div = format_path(args.alternate_home)?;
     left_floats.push(path_div);
 
     let t2 = get_time(timed);
@@ -88,10 +118,10 @@ fn main() -> Fallible<()> {
 
     let t6 = get_time(timed);
     let options = LayoutOptions::new()
-        .verbose(args.occurrences_of("verbose") > 0)
-        .use_safe_arrow(args.occurrences_of("safe_arrow") > 0)
-        .use_safe_corners(args.occurrences_of("safe_corners") > 0)
-        .escape_for_readline(args.occurrences_of("no_readline") == 0)
+        .verbose(args.verbose)
+        .use_safe_arrow(args.safe_arrow)
+        .use_safe_corners(args.safe_corners)
+        .escape_for_readline(!args.no_readline)
         .border_template(border_template)
         .prompt_template(prompt_template)
         .width(columns);
@@ -103,30 +133,30 @@ fn main() -> Fallible<()> {
     Run::show_all(&runs, options.escape_for_readline);
     let t8 = get_time(timed);
     if timed {
-        println!("Fmt Path:      {}", t1.unwrap().to(t2.unwrap()));
-        println!("Fmt Git:       {}", t2.unwrap().to(t3.unwrap()));
-        println!("Fmt Date:      {}", t3.unwrap().to(t5.unwrap()));
-        println!("Fmt User/Host: {}", t5.unwrap().to(t6.unwrap()));
-        println!("Layout&Render: {}", t6.unwrap().to(t7.unwrap()));
-        println!("Writing:       {}", t7.unwrap().to(t8.unwrap()));
-        println!("Total:         {}", t1.unwrap().to(t8.unwrap()));
+        println!("Fmt Path:      {:?}", t2.unwrap() - t1.unwrap());
+        println!("Fmt Git:       {:?}", t3.unwrap() - t2.unwrap());
+        println!("Fmt Date:      {:?}", t5.unwrap() - t3.unwrap());
+        println!("Fmt User/Host: {:?}", t6.unwrap() - t5.unwrap());
+        println!("Layout&Render: {:?}", t7.unwrap() - t6.unwrap());
+        println!("Writing:       {:?}", t8.unwrap() - t7.unwrap());
+        println!("Total:         {:?}", t8.unwrap() - t1.unwrap());
     }
     Ok(())
 }
 
-fn get_time(timed: bool) -> Option<PreciseTime> {
+fn get_time(timed: bool) -> Option<Instant> {
     if timed {
-        return Some(PreciseTime::now());
+        return Some(Instant::now());
     }
     None
 }
 
-fn format_path(alt_home: Option<&str>) -> Fallible<Div> {
+fn format_path(alt_home: Option<PathBuf>) -> Fallible<Div> {
     let path = current_dir()?;
     let raw_path_str = path.to_str().unwrap_or("<error>");
     let home_str = match alt_home {
         None => var("HOME")?,
-        Some(alt) => alt.to_owned(),
+        Some(alt) => alt.to_string_lossy().to_string(),
     };
     let path_str = if raw_path_str.starts_with(&home_str) {
         raw_path_str.replace(&home_str, "~")
@@ -193,12 +223,7 @@ fn find_git_branch_at(path: &'static str) -> Option<String> {
         Ok(head) => head,
         Err(_) => return None,
     };
-    Some(
-        match head.shorthand() {
-            Some(tgt) => tgt,
-            None => "(detached)",
-        }.to_owned(),
-    )
+    Some(head.shorthand().unwrap_or("(detached)").to_owned())
 }
 
 fn format_git_branch(branch: &str) -> Div {
@@ -229,10 +254,11 @@ fn format_user_host() -> Div {
         None => "<unknown_user>".to_owned(),
         Some(un) => un.into_string().unwrap_or_else(|_| "<unknown_user>".into()),
     };
-    let hostname = match get_hostname() {
-        None => "<unknown_host>".to_owned(),
-        Some(hn) => hn,
-    };
+    let hostname = get()
+        .ok()
+        .to_owned()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "<unknown_host>".to_owned());
     let mut span = Span::new(&username);
     span = match get_effective_uid() {
         0 => span.foreground(Color::Red).bold(),
@@ -280,24 +306,32 @@ mod tests {
 
     #[test]
     fn single_line() {
-        do_test(80,
-                "TTT",
-                &["AAAA", "BBBB", "CCCC"],
-                &["DDDD", "EEEE"],
-                &["┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
-                  "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┴ EEEE ┴─────",
-                  "└➤ "]);
+        do_test(
+            80,
+            "TTT",
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDD", "EEEE"],
+            &[
+                "┬──────┬──────┬──────┬──────────────────────────────────────┬──────┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┴ CCCC ┘                                      └ DDDD ┴ EEEE ┴─────",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn single_line_min() {
-        do_test(43,
-                "TTT",
-                &["AAAA", "BBBB", "CCCC"],
-                &["DDDD", "EEEE"],
-                &["┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
-                  "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┴ EEEE ┴─────",
-                  "└➤ "]);
+        do_test(
+            43,
+            "TTT",
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDD", "EEEE"],
+            &[
+                "┬──────┬──────┬──────┬─┬──────┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┴ CCCC ┘ └ DDDD ┴ EEEE ┴─────",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
@@ -469,61 +503,81 @@ mod tests {
 
     #[test]
     fn drop_right_long_short() {
-        do_test(42,
-                "TTT",
-                &["AAAA", "BBBB", "CCCC"],
-                &["DDDDDDDD", "EEEE"],
-                &["┬──────┬──────┬──────┬───┬──────────┐ TTT ",
-                  "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
-                  "│                        └ EEEE ────┘     ",
-                  "└➤ "]);
+        do_test(
+            42,
+            "TTT",
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDDDDDD", "EEEE"],
+            &[
+                "┬──────┬──────┬──────┬───┬──────────┐ TTT ",
+                "├ AAAA ┴ BBBB ┴ CCCC ┘   ├ DDDDDDDD ┼─────",
+                "│                        └ EEEE ────┘     ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_right_short_long() {
-        do_test(42,
-                "TTT",
-                &["AAAA", "BBBB", "CCCC"],
-                &["DDDD", "EEEEEEEE"],
-                &["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
-                  "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
-                  "│                            └ EEEEEEEE ┘ ",
-                  "└➤ "]);
+        do_test(
+            42,
+            "TTT",
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDD", "EEEEEEEE"],
+            &[
+                "┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴───┬─",
+                "│                            └ EEEEEEEE ┘ ",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_right_short_long_stretch1() {
-        do_test(42,
-                "TTT",
-                &["AAAA", "BBBB", "CCCC"],
-                &["DDDD", "EEEEEEEEE"],
-                &["┬──────┬──────┬──────┬───────┬──────┐ TTT ",
-                  "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
-                  "│                            └ EEEEEEEEE ┘",
-                  "└➤ "]);
+        do_test(
+            42,
+            "TTT",
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDD", "EEEEEEEEE"],
+            &[
+                "┬──────┬──────┬──────┬───────┬──────┐ TTT ",
+                "├ AAAA ┴ BBBB ┴ CCCC ┘       ├ DDDD ┴────┬",
+                "│                            └ EEEEEEEEE ┘",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_right_short_long_stretch2() {
-        do_test(42,
-                "TTT",
-                &["AAAA", "BBBB", "CCCC"],
-                &["DDDD", "EEEEEEEEEE"],
-                &["┬──────┬──────┬──────┬──────┬───────┐ TTT ",
-                  "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
-                  "│                           └ EEEEEEEEEE ┘",
-                  "└➤ "]);
+        do_test(
+            42,
+            "TTT",
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDD", "EEEEEEEEEE"],
+            &[
+                "┬──────┬──────┬──────┬──────┬───────┐ TTT ",
+                "├ AAAA ┴ BBBB ┴ CCCC ┘      ├ DDDD ─┴────┬",
+                "│                           └ EEEEEEEEEE ┘",
+                "└➤ ",
+            ],
+        );
     }
 
     #[test]
     fn drop_right_short_long_stretch4() {
-        do_test(42,
-                "TTT",
-                &["AAAA", "BBBB", "CCCC"],
-                &["DDDD", "EEEEEEEEEEEE"],
-                &["┬──────┬──────┬──────┬────┬─────────┐ TTT ",
-                  "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
-                  "│                         └ EEEEEEEEEEEE ┘",
-                  "└➤ "]);
+        do_test(
+            42,
+            "TTT",
+            &["AAAA", "BBBB", "CCCC"],
+            &["DDDD", "EEEEEEEEEEEE"],
+            &[
+                "┬──────┬──────┬──────┬────┬─────────┐ TTT ",
+                "├ AAAA ┴ BBBB ┴ CCCC ┘    ├ DDDD ───┴────┬",
+                "│                         └ EEEEEEEEEEEE ┘",
+                "└➤ ",
+            ],
+        );
     }
 }

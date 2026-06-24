@@ -15,9 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-use std;
-use std::cmp;
-use std::collections::HashSet;
+use std::{cmp, collections::HashSet, slice::Iter};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Color {
@@ -216,7 +214,7 @@ impl Div {
         self.children.iter().map(|s| s.width()).sum()
     }
 
-    pub fn iter_spans(&self) -> std::slice::Iter<Span> {
+    pub fn iter_spans(&self) -> Iter<'_, Span> {
         self.children.iter()
     }
 }
@@ -437,10 +435,7 @@ impl Layout {
         // ├ A ┘ ├ FFFF ┼─────
         //       └ EE ──┘
         let (w_max_right, h_max_right) =
-            match Self::pack_into_width(inner_width - 5, outer_width - 5, &right_floats) {
-                None => return None,
-                Some(p) => p,
-            };
+            Self::pack_into_width(inner_width - 5, outer_width - 5, &right_floats)?;
         if options.verbose {
             println!("Pass1:");
             println!("    target0: {}", inner_width - 5);
