@@ -1,13 +1,25 @@
 [package]
 name = "promptly"
-version = "0.1.0"
+description = "Get a beautiful prompt, sooner."
+edition = "2024"
 authors = ["Terrence Cole <terrence.d.cole@gmail.com>"]
+version = "0.3.0"
+keywords = ["prompt"]
+categories = ["command-line-interface", "command-line-utilities"]
+readme = "README.md"
+license = "GPL-3.0-or-later"
+documentation = "https://github.com/terrence2/promptly.git"
+homepage = "https://github.com/terrence2/promptly.git"
+repository = "https://github.com/terrence2/promptly.git"
+publish = false
+exclude = [
+    ".circleci/*",
+]
 
 [dependencies]
 failure = "0.1.2"
-chrono = "0.3"
-clap = "2.24"
-git2 = "0.6"
-hostname = "0.1"
-time = "0.1"
-users = "0.5.2"
+chrono = "0.4"
+clap = { version = "4.6", features = ["color", "derive"] }
+git2 = "0.21"
+hostname = "0.4"
+users = "0.11"
